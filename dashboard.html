@@ -363,14 +363,16 @@
         <div class="card"><div id="stacked-paidupfront-renewal"></div></div>
       </div>
 
-      <!-- Processing Fees -->
-      <div class="section-header">
-        <div class="section-header-text">Processing Fees</div>
-        <div class="section-header-line"></div>
-      </div>
-      <div class="grid-2">
-        <div class="card"><div id="processing-fee-chart"></div></div>
-        <div class="card"><div id="processing-fee-estimate-1028"></div></div>
+      <!-- Processing Fees (admin only) -->
+      <div id="processing-fees-section" style="display:none;">
+        <div class="section-header">
+          <div class="section-header-text">Processing Fees</div>
+          <div class="section-header-line"></div>
+        </div>
+        <div class="grid-2">
+          <div class="card"><div id="processing-fee-chart"></div></div>
+          <div class="card"><div id="processing-fee-estimate-1028"></div></div>
+        </div>
       </div>
 
       <!-- Top Performers -->
@@ -448,10 +450,12 @@
     function fmtAED(n) { return `AED ${Math.round(n).toLocaleString()}`; }
 
     // ── Load data (shared by auto-fetch and manual upload) ─────
+    var dataLastUpdated = '';
     function loadData(json, source) {
       allData = Array.isArray(json) ? json : [json];
-      document.getElementById('data-timestamp').textContent =
-        `${source} · ${allData.length.toLocaleString()} records`;
+      var info = `${source} · ${allData.length.toLocaleString()} records`;
+      if (dataLastUpdated) info += ` · Updated ${dataLastUpdated}`;
+      document.getElementById('data-timestamp').textContent = info;
       populateOrgFilter(allData);
       selectedRentMonth = null;
       document.getElementById('empty-state').style.display = 'none';
@@ -464,6 +468,12 @@
       fetch('./data.json', { cache: 'no-store' })
         .then(function(res) {
           if (!res.ok) throw new Error(res.status);
+          var lastMod = res.headers.get('Last-Modified');
+          if (lastMod) {
+            var d = new Date(lastMod);
+            dataLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+              + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          }
           return res.json();
         })
         .then(function(json) {
@@ -1167,6 +1177,7 @@
         }
         if (userDoc.data().isAdmin) {
           document.getElementById('admin-link').style.display = 'inline-flex';
+          document.getElementById('processing-fees-section').style.display = 'block';
         }
         document.body.classList.add('authenticated');
       } catch (e) {
