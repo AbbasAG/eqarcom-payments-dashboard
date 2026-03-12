@@ -157,11 +157,12 @@
             <th>Email</th>
             <th>Role</th>
             <th>Registered</th>
+            <th>Last Visited</th>
             <th>Enabled</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
-          <tr class="loading-row"><td colspan="5">Loading users&hellip;</td></tr>
+          <tr class="loading-row"><td colspan="6">Loading users&hellip;</td></tr>
         </tbody>
       </table>
     </div>
@@ -208,7 +209,7 @@
         tbody.innerHTML = '';
 
         if (snapshot.empty) {
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="5">No users yet</td></tr>';
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="6">No users yet</td></tr>';
           return;
         }
 
@@ -230,12 +231,19 @@
           var regBadge = data.registered
             ? '<span class="badge badge-yes">Yes</span>'
             : '<span class="badge badge-no">No</span>';
+          var lastVisited = '—';
+          if (data.lastVisited) {
+            var d = new Date(data.lastVisited);
+            lastVisited = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+              + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          }
 
           tr.innerHTML =
             '<td>' + escapeHtml(data.name) + '</td>' +
             '<td>' + escapeHtml(data.email) + '</td>' +
             '<td>' + roleBadge + '</td>' +
             '<td>' + regBadge + '</td>' +
+            '<td style="color:#94a3b8;font-size:12px;">' + lastVisited + '</td>' +
             '<td><label class="toggle"><input type="checkbox"' +
             (data.enabled ? ' checked' : '') +
             ' data-email="' + escapeHtml(data.email) + '"><span class="toggle-slider"></span></label></td>';
@@ -256,7 +264,7 @@
         });
       } catch (err) {
         console.error('Load users failed:', err);
-        tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Failed to load users</td></tr>';
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="6">Failed to load users</td></tr>';
       }
     }
 

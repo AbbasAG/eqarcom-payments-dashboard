@@ -1158,7 +1158,7 @@
 
   <!-- Firebase auth guard -->
   <script type="module">
-    import { auth, db, ADMIN_EMAIL, onAuthStateChanged, signOut, doc, getDoc } from './firebase-init.js';
+    import { auth, db, ADMIN_EMAIL, onAuthStateChanged, signOut, doc, getDoc, updateDoc } from './firebase-init.js';
 
     document.getElementById('logout-btn').addEventListener('click', function() {
       this.disabled = true;
@@ -1187,6 +1187,8 @@
           }, 500);
         }
         document.body.classList.add('authenticated');
+        // Record last visited timestamp (fire-and-forget)
+        updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});
       } catch (e) {
         console.error('Auth check failed:', e);
         await signOut(auth);
