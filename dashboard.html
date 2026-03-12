@@ -1178,6 +1178,13 @@
         if (userDoc.data().isAdmin) {
           document.getElementById('admin-link').style.display = 'inline-flex';
           document.getElementById('processing-fees-section').style.display = 'block';
+          // Plotly charts rendered while hidden have zero width — force relayout
+          setTimeout(function() {
+            var fee1 = document.getElementById('processing-fee-chart');
+            var fee2 = document.getElementById('processing-fee-estimate-1028');
+            if (fee1 && fee1.data) window.Plotly.relayout(fee1, {autosize: true});
+            if (fee2 && fee2.data) window.Plotly.relayout(fee2, {autosize: true});
+          }, 500);
         }
         document.body.classList.add('authenticated');
       } catch (e) {
