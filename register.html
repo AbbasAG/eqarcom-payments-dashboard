@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register — EQARCOM Digital Payments</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f172a; color: #e2e8f0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-card {
+      background: #1e293b; border: 1px solid #2d4060; border-radius: 16px;
+      padding: 48px 40px; max-width: 420px; width: 100%; text-align: center;
+    }
+    .auth-logo {
+      max-width: 200px; margin: 0 auto 12px; display: block;
+      filter: brightness(0) invert(1);
+    }
+    .auth-title { font-size: 16px; font-weight: 600; color: #94a3b8; margin-bottom: 32px; }
+    .form-group { margin-bottom: 18px; text-align: left; }
+    .form-group label {
+      display: block; font-size: 12px; font-weight: 600; color: #94a3b8;
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .form-group input {
+      width: 100%; padding: 11px 16px; background: #0f172a;
+      border: 1px solid #334155; border-radius: 8px; color: #e2e8f0;
+      font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.15s;
+    }
+    .form-group input:focus { border-color: #357296; }
+    .form-group input[readonly] { opacity: 0.6; cursor: not-allowed; }
+    .auth-btn {
+      width: 100%; padding: 12px; background: #10455F; color: #e2e8f0;
+      border: none; border-radius: 8px; font-family: inherit; font-size: 14px;
+      font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.15s;
+    }
+    .auth-btn:hover { background: #357296; }
+    .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .auth-error {
+      background: rgba(127,29,29,0.25); border: 1px solid rgba(185,28,28,0.35);
+      border-radius: 8px; padding: 10px 14px; color: #fca5a5; font-size: 13px;
+      margin-bottom: 16px; display: none; text-align: left;
+    }
+    .auth-success {
+      background: rgba(29,95,60,0.25); border: 1px solid rgba(45,138,94,0.35);
+      border-radius: 8px; padding: 10px 14px; color: #86efac; font-size: 13px;
+      margin-bottom: 16px; display: none; text-align: left;
+    }
+    .auth-link { margin-top: 24px; font-size: 13px; color: #64748b; }
+    .auth-link a { color: #6FB1C9; text-decoration: none; font-weight: 500; }
+    .auth-link a:hover { text-decoration: underline; }
+    .pw-hint { font-size: 11px; color: #64748b; margin-top: 4px; }
+
+    /* ── Portrait warning ── */
+    .portrait-warning {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: #0f172a; align-items: center; justify-content: center;
+      flex-direction: column; text-align: center; padding: 40px;
+      font-family: 'Inter', system-ui, sans-serif; color: #e2e8f0;
+    }
+    .portrait-warning svg { width: 64px; height: 64px; margin-bottom: 24px; color: #6FB1C9; }
+    .portrait-warning h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+    .portrait-warning p { font-size: 14px; color: #94a3b8; max-width: 300px; line-height: 1.5; }
+    @media screen and (max-width: 767px) and (orientation: portrait) {
+      .portrait-warning { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Portrait warning -->
+  <div class="portrait-warning">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2" transform="rotate(90 12 12)"/>
+      <path d="M12 18h.01"/>
+    </svg>
+    <h2>Please rotate your device</h2>
+    <p>This dashboard is optimised for landscape viewing. Please rotate your device to landscape mode.</p>
+  </div>
+
+  <div class="auth-card">
+    <img src="logo.png" alt="EQARCOM" class="auth-logo">
+    <div class="auth-title">Create Your Account</div>
+
+    <div class="auth-error" id="error-msg"></div>
+    <div class="auth-success" id="success-msg"></div>
+
+    <!-- Step 1: Email lookup -->
+    <form id="email-form">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="email" required autocomplete="email" placeholder="you@company.com">
+      </div>
+      <button type="submit" class="auth-btn" id="lookup-btn">Continue</button>
+    </form>
+
+    <!-- Step 2: Set password (hidden initially) -->
+    <form id="register-form" style="display:none;">
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" id="reg-name" readonly>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" readonly>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" required minlength="6" placeholder="Minimum 6 characters">
+        <div class="pw-hint">Must be at least 6 characters</div>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" id="confirm-password" required minlength="6" placeholder="Re-enter your password">
+      </div>
+      <button type="submit" class="auth-btn" id="register-btn">Create Account</button>
+    </form>
+
+    <p class="auth-link">Already have an account? <a href="index.html">Login</a></p>
+  </div>
+
+  <script type="module">
+    import {
+      auth, db, ADMIN_EMAIL,
+      createUserWithEmailAndPassword, signOut,
+      doc, getDoc, setDoc, updateDoc
+    } from './firebase-init.js';
+
+    var errorEl = document.getElementById('error-msg');
+    var successEl = document.getElementById('success-msg');
+    var emailForm = document.getElementById('email-form');
+    var registerForm = document.getElementById('register-form');
+    var lookupBtn = document.getElementById('lookup-btn');
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.style.display = 'block';
+      successEl.style.display = 'none';
+    }
+    function hideMessages() {
+      errorEl.style.display = 'none';
+      successEl.style.display = 'none';
+    }
+
+    // Step 1: Look up email in Firestore
+    emailForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      hideMessages();
+      lookupBtn.disabled = true;
+      lookupBtn.textContent = 'Checking\u2026';
+
+      var email = document.getElementById('email').value.trim().toLowerCase();
+
+      try {
+        var userDoc = await getDoc(doc(db, 'users', email));
+
+        // Admin bootstrap: if admin email and no doc exists, auto-create it
+        if (!userDoc.exists() && email === ADMIN_EMAIL) {
+          await setDoc(doc(db, 'users', email), {
+            name: 'Abbas Hayat',
+            email: email,
+            enabled: true,
+            isAdmin: true,
+            registered: false
+          });
+          userDoc = await getDoc(doc(db, 'users', email));
+        }
+
+        if (!userDoc.exists()) {
+          showError('No account found for this email. Contact your administrator.');
+          lookupBtn.disabled = false;
+          lookupBtn.textContent = 'Continue';
+          return;
+        }
+
+        if (userDoc.data().registered) {
+          showError('This email is already registered. Please login instead.');
+          lookupBtn.disabled = false;
+          lookupBtn.textContent = 'Continue';
+          return;
+        }
+
+        // Show step 2
+        document.getElementById('reg-name').value = userDoc.data().name;
+        document.getElementById('reg-email').value = email;
+        emailForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        hideMessages();
+      } catch (err) {
+        showError('Something went wrong. Please try again.');
+        console.error(err);
+        lookupBtn.disabled = false;
+        lookupBtn.textContent = 'Continue';
+      }
+    });
+
+    // Step 2: Create Firebase Auth account + update Firestore
+    registerForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      hideMessages();
+
+      var email = document.getElementById('reg-email').value;
+      var password = document.getElementById('password').value;
+      var confirmPw = document.getElementById('confirm-password').value;
+      var registerBtn = document.getElementById('register-btn');
+
+      if (password !== confirmPw) {
+        showError('Passwords do not match.');
+        return;
+      }
+      if (password.length < 6) {
+        showError('Password must be at least 6 characters.');
+        return;
+      }
+
+      registerBtn.disabled = true;
+      registerBtn.textContent = 'Creating account\u2026';
+
+      try {
+        var cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateDoc(doc(db, 'users', email), {
+          registered: true,
+          uid: cred.user.uid
+        });
+        await signOut(auth);
+
+        // Show success
+        registerForm.style.display = 'none';
+        successEl.textContent = 'Account created! Redirecting to login\u2026';
+        successEl.style.display = 'block';
+        setTimeout(function() { window.location.href = 'index.html'; }, 2000);
+      } catch (err) {
+        var msg = 'Registration failed. ';
+        if (err.code === 'auth/email-already-in-use') msg += 'This email is already registered.';
+        else if (err.code === 'auth/weak-password') msg += 'Password is too weak.';
+        else msg += err.message;
+        showError(msg);
+        registerBtn.disabled = false;
+        registerBtn.textContent = 'Create Account';
+      }
+    });
+  </script>
+</body>
+</html>

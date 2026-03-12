@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EQARCOM Digital Payments Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #0c3248 0%, #10455F 50%, #1e3a5f 100%);
+      padding: 28px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e4060;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-badge {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #6FB1C9;
+    }
+    .header-title { font-size: 22px; font-weight: 800; color: #f1f5f9; letter-spacing: -0.5px; }
+    .header-subtitle { font-size: 12px; color: #7fa8bf; margin-top: 3px; }
+    .header-right { font-size: 12px; color: #4a7a96; }
+
+    /* ── Main ── */
+    .main { max-width: 1280px; margin: 0 auto; padding: 32px 28px 60px; }
+
+    /* ── Upload / Filter ── */
+    .control-bar {
+      background: #1e293b;
+      border: 1px solid #2d4060;
+      border-radius: 16px;
+      padding: 24px 28px;
+      margin-bottom: 36px;
+      display: flex;
+      align-items: flex-end;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+    .control-group { display: flex; flex-direction: column; gap: 8px; }
+    .control-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .file-btn-wrapper { position: relative; display: inline-flex; align-items: center; }
+    .file-btn-wrapper input[type="file"] {
+      position: absolute; opacity: 0; inset: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .file-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px;
+      background: #357296; color: white;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .file-btn:hover { background: #2a5a78; transform: translateY(-1px); }
+    .file-name-display {
+      margin-left: 12px; font-size: 12px; color: #475569;
+      font-style: italic;
+    }
+    select#orgSelect {
+      background: #0f172a; color: #e2e8f0;
+      border: 1px solid #334155; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px; font-family: inherit;
+      cursor: pointer; outline: none; min-width: 220px;
+      transition: border-color 0.15s;
+    }
+    select#orgSelect:hover, select#orgSelect:focus { border-color: #6FB1C9; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 80px 24px; color: #334155;
+    }
+    .empty-icon { font-size: 56px; margin-bottom: 20px; }
+    .empty-title { font-size: 18px; font-weight: 600; color: #475569; margin-bottom: 8px; }
+    .empty-sub { font-size: 13px; color: #334155; }
+
+    /* ── Section header ── */
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin: 40px 0 18px;
+    }
+    .section-header-line {
+      flex: 1; height: 1px; background: #1e293b;
+    }
+    .section-header-text {
+      font-size: 11px; font-weight: 700; color: #4a7a96;
+      text-transform: uppercase; letter-spacing: 1.2px;
+      white-space: nowrap;
+    }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .kpi-card {
+      background: #1e293b;
+      border: 1px solid #2d4060;
+      border-radius: 16px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #10455F, #357296);
+      border-radius: 16px 16px 0 0;
+    }
+    .kpi-card:hover {
+      border-color: #357296;
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(16, 69, 95, 0.3);
+    }
+    .kpi-label {
+      font-size: 11px; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+    }
+    .kpi-value {
+      font-size: 26px; font-weight: 800; color: #f1f5f9;
+      letter-spacing: -1px; line-height: 1;
+    }
+    .kpi-value.medium { font-size: 20px; }
+    .kpi-value.small { font-size: 16px; }
+
+    /* ── Chart Cards ── */
+    .card {
+      background: #1e293b;
+      border: 1px solid #2d4060;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card-hint {
+      text-align: center; font-size: 11px; color: #334155;
+      margin-top: 6px; font-style: italic;
+    }
+
+    /* ── Grids ── */
+    .grid-2 { display: flex; flex-direction: column; gap: 20px; margin-bottom: 20px; }
+    .grid-2 .card { margin-bottom: 0; }
+
+    /* ── Tables ── */
+    .table-title {
+      font-size: 14px; font-weight: 700; color: #e2e8f0;
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 1px solid #2d4060;
+    }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th {
+      text-align: left; padding: 10px 14px;
+      background: #0f172a; color: #64748b;
+      font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid #2d4060;
+    }
+    .data-table th:not(:first-child) { text-align: right; }
+    .data-table td {
+      padding: 11px 14px; border-bottom: 1px solid #172033;
+      color: #cbd5e1;
+    }
+    .data-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table tbody tr:nth-child(even) td { background: #243248; }
+    .data-table tbody tr:hover td { background: #2d4060; color: #f1f5f9; }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* ── Auth gate — hide content until verified ── */
+    body:not(.authenticated) .header,
+    body:not(.authenticated) .main { visibility: hidden; }
+
+    /* ── Header auth controls ── */
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .header-admin-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
+      color: #6FB1C9; text-decoration: none; font-size: 12px; font-weight: 600;
+      transition: background 0.15s;
+    }
+    .header-admin-btn:hover { background: rgba(255,255,255,0.18); }
+    .header-logout-btn {
+      padding: 7px 14px; background: rgba(127,29,29,0.25);
+      border: 1px solid rgba(185,28,28,0.35); border-radius: 8px;
+      color: #fca5a5; font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.15s;
+    }
+    .header-logout-btn:hover { background: rgba(127,29,29,0.4); }
+
+    /* ── Portrait warning overlay ── */
+    .portrait-warning {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: #0f172a; align-items: center; justify-content: center;
+      flex-direction: column; text-align: center; padding: 40px;
+      font-family: 'Inter', system-ui, sans-serif; color: #e2e8f0;
+    }
+    .portrait-warning svg { width: 64px; height: 64px; margin-bottom: 24px; color: #6FB1C9; }
+    .portrait-warning h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+    .portrait-warning p { font-size: 14px; color: #94a3b8; max-width: 300px; line-height: 1.5; }
+    @media screen and (max-width: 767px) and (orientation: portrait) {
+      .portrait-warning { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Portrait warning for mobile -->
+  <div class="portrait-warning">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2" transform="rotate(90 12 12)"/>
+      <path d="M12 18h.01"/>
+    </svg>
+    <h2>Please rotate your device</h2>
+    <p>This dashboard is optimised for landscape viewing. Please rotate your device to landscape mode.</p>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-badge">EQARCOM</div>
+      <div>
+        <div class="header-title">Digital Payments Dashboard</div>
+        <div class="header-subtitle">Upload a JSON export to visualise collections data</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="header-right" id="data-timestamp"></span>
+      <a href="admin.html" id="admin-link" class="header-admin-btn" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users
+      </a>
+      <button id="logout-btn" class="header-logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- Controls -->
+    <div class="control-bar">
+      <div class="control-group">
+        <div class="control-label">Payment JSON File</div>
+        <div style="display: flex; align-items: center;">
+          <div class="file-btn-wrapper">
+            <div class="file-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload JSON
+            </div>
+            <input type="file" id="upload" accept=".json" />
+          </div>
+          <span class="file-name-display" id="file-name-display">No file selected</span>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="control-label">Filter by Organisation</div>
+        <select id="orgSelect">
+          <option value="all">All Organisations</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Empty / loading state -->
+    <div id="empty-state">
+      <div class="empty-state">
+        <div class="empty-icon" id="empty-icon">⏳</div>
+        <div class="empty-title" id="empty-title">Loading data&hellip;</div>
+        <div class="empty-sub" id="empty-sub">Fetching data.json</div>
+      </div>
+    </div>
+
+    <!-- Dashboard content -->
+    <div id="dashboard-content" style="display:none;">
+
+      <!-- KPI Cards -->
+      <div class="section-header">
+        <div class="section-header-text">Key Metrics</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div id="headline-stats" class="kpi-grid"></div>
+
+      <!-- Monthly Rent + Daily Drill-down -->
+      <div class="section-header">
+        <div class="section-header-text">Monthly Collections</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card">
+        <div id="bar-paid-amount"></div>
+        <div class="card-hint">Click a bar to drill into daily data</div>
+      </div>
+      <div class="card"><div id="daily-rent-chart"></div></div>
+
+      <div class="grid-2">
+        <div class="card"><div id="cumulative-paid-amount"></div></div>
+        <div class="card"><div id="quarterly-paid-amount"></div></div>
+      </div>
+
+      <!-- Rent Breakdown -->
+      <div class="section-header">
+        <div class="section-header-text">Rent Breakdown</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card"><div id="rent-subtype-stacked"></div></div>
+
+      <!-- Early Cash Flow -->
+      <div class="section-header">
+        <div class="section-header-text">Early Cash Flow — Rent with Renewals</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card"><div id="early-rent-renewal"></div></div>
+
+      <!-- Service Bookings -->
+      <div class="section-header">
+        <div class="section-header-text">Service Bookings</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card">
+        <div id="service-booking-paid-amount"></div>
+        <div class="card-hint">Click a bar to drill into daily data</div>
+      </div>
+      <div class="card"><div id="daily-service-bookings"></div></div>
+
+      <!-- Payment Mix -->
+      <div class="section-header">
+        <div class="section-header-text">Payment Mix &amp; Behaviour</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card"><div id="stacked-payment-type"></div></div>
+      <div class="grid-2">
+        <div class="card"><div id="stacked-paidupfront"></div></div>
+        <div class="card"><div id="stacked-paidupfront-renewal"></div></div>
+      </div>
+
+      <!-- Processing Fees -->
+      <div class="section-header">
+        <div class="section-header-text">Processing Fees</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card"><div id="processing-fee-chart"></div></div>
+        <div class="card"><div id="processing-fee-estimate-1028"></div></div>
+      </div>
+
+      <!-- Top Performers -->
+      <div class="section-header">
+        <div class="section-header-text">Top Performers</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card" id="top-properties-table"></div>
+      <div class="card" id="top-business-units-table"></div>
+
+      <!-- Yearly Summary -->
+      <div class="section-header">
+        <div class="section-header-text">Year-over-Year Summary</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card"><div id="yearly-summary"></div></div>
+
+    </div><!-- /#dashboard-content -->
+
+  </div><!-- /.main -->
+
+  <script>
+    // ── State ────────────────────────────────────────────────────
+    let allData = [];
+    let selectedRentMonth = null;
+
+    // ── Brand colours ────────────────────────────────────────────
+    const PALETTE = ['#10455F', '#357296', '#6FB1C9', '#1D5F3C', '#0E2F44', '#99D3E4', '#4a9eca', '#266a8c'];
+
+    // ── Dark Plotly layout base ──────────────────────────────────
+    const BG = '#1e293b';
+    const GRID = '#243248';
+    const TEXT = '#e2e8f0';
+    const MUTED = '#64748b';
+    const FONT_FAMILY = "'Inter', system-ui, sans-serif";
+
+    function baseLayout(overrides) {
+      const base = {
+        paper_bgcolor: BG,
+        plot_bgcolor: BG,
+        font: { color: TEXT, family: FONT_FAMILY, size: 12 },
+        xaxis: { gridcolor: GRID, zerolinecolor: GRID, tickfont: { color: MUTED }, titlefont: { color: MUTED } },
+        yaxis: { gridcolor: GRID, zerolinecolor: GRID, tickfont: { color: MUTED }, titlefont: { color: MUTED } },
+        legend: { bgcolor: 'transparent', font: { color: MUTED } },
+        hoverlabel: { bgcolor: '#0f172a', bordercolor: '#334155', font: { family: FONT_FAMILY, color: TEXT } },
+        margin: { t: 56, l: 60, r: 40, b: 60 }
+      };
+      // Shallow-merge top-level; deep-merge xaxis/yaxis/margin
+      const out = Object.assign({}, base, overrides);
+      out.xaxis  = Object.assign({}, base.xaxis,  overrides.xaxis  || {});
+      out.yaxis  = Object.assign({}, base.yaxis,  overrides.yaxis  || {});
+      out.margin = Object.assign({}, base.margin,  overrides.margin || {});
+      // title handling
+      if (overrides.title && typeof overrides.title === 'string') {
+        out.title = { text: overrides.title, font: { size: 14, color: '#f1f5f9', family: FONT_FAMILY }, x: 0.02 };
+      } else if (overrides.title) {
+        out.title = Object.assign({ x: 0.02, font: { size: 14, color: '#f1f5f9', family: FONT_FAMILY } }, overrides.title);
+      }
+      return out;
+    }
+
+    const CONFIG = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['sendDataToCloud'] };
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function parsePaid(val) {
+      if (val == null) return NaN;
+      if (typeof val === 'string') val = val.replace(/,/g, '');
+      return parseFloat(val);
+    }
+
+    function sortMonths(months) {
+      return [...months].sort((a, b) => new Date('01-' + a) - new Date('01-' + b));
+    }
+
+    function fmtAED(n) { return `AED ${Math.round(n).toLocaleString()}`; }
+
+    // ── Load data (shared by auto-fetch and manual upload) ─────
+    function loadData(json, source) {
+      allData = Array.isArray(json) ? json : [json];
+      document.getElementById('data-timestamp').textContent =
+        `${source} · ${allData.length.toLocaleString()} records`;
+      populateOrgFilter(allData);
+      selectedRentMonth = null;
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('dashboard-content').style.display = 'block';
+      renderCharts(allData);
+    }
+
+    // ── Auto-fetch data.json on page load ────────────────────────
+    (function autoFetch() {
+      fetch('./data.json', { cache: 'no-store' })
+        .then(function(res) {
+          if (!res.ok) throw new Error(res.status);
+          return res.json();
+        })
+        .then(function(json) {
+          loadData(json, 'data.json');
+        })
+        .catch(function() {
+          // No data.json found — show upload prompt
+          document.getElementById('empty-icon').textContent  = '📊';
+          document.getElementById('empty-title').textContent = 'No data loaded';
+          document.getElementById('empty-sub').textContent   = 'Upload a JSON file above, or place a data.json alongside this page';
+        });
+    })();
+
+    // ── Manual file upload (override / fallback) ─────────────────
+    document.getElementById('upload').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('file-name-display').textContent = file.name;
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        try {
+          loadData(JSON.parse(ev.target.result), file.name);
+        } catch(err) {
+          alert('Could not parse JSON file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('orgSelect').addEventListener('change', function() {
+      const org = this.value;
+      const filtered = org === 'all' ? allData : allData.filter(d => d.Organization === org);
+      selectedRentMonth = null;
+      renderCharts(filtered);
+    });
+
+    function populateOrgFilter(data) {
+      const orgs = [...new Set(data.map(d => d.Organization).filter(Boolean))].sort();
+      const sel = document.getElementById('orgSelect');
+      sel.innerHTML = '<option value="all">All Organisations</option>';
+      orgs.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        sel.appendChild(opt);
+      });
+    }
+
+    // ── HEADLINE STATS ───────────────────────────────────────────
+    function renderHeadlineStats(data) {
+      const currentYear = new Date().getFullYear();
+      const ytdSuffix = String(currentYear).slice(-2);
+
+      const rentData = data.filter(d => d['Payment Type'] === 'Rent Installment');
+      const totalPaid = data.reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
+      const rentPaid  = rentData.reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
+      const ytdPaid   = data.filter(d => d['Paid Month'] && d['Paid Month'].endsWith(ytdSuffix))
+                            .reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
+
+      const uniqueTransactions = new Set(data.map(d => d['Order ID'])).size;
+      const rentTransactions   = new Set(rentData.map(d => d['Order ID'])).size;
+      const uniqueUsers        = new Set(data.map(d => (d['Unit Code'] || '') + '|' + (d['Organization'] || ''))).size;
+      const rentUsers          = new Set(rentData.map(d => (d['Unit Code'] || '') + '|' + (d['Organization'] || ''))).size;
+
+      const metrics = [
+        { label: 'Payments Processed — Overall',       value: fmtAED(totalPaid) },
+        { label: `Payments Processed — YTD ${currentYear}`, value: fmtAED(ytdPaid) },
+        { label: 'Payments Processed — Rent',          value: fmtAED(rentPaid) },
+        { label: 'Total Transactions',                 value: uniqueTransactions.toLocaleString() },
+        { label: 'Rent Transactions',                  value: rentTransactions.toLocaleString() },
+        { label: 'Unique Users',                       value: uniqueUsers.toLocaleString() },
+        { label: 'Users Paying Rent',                  value: rentUsers.toLocaleString() },
+      ];
+
+      const container = document.getElementById('headline-stats');
+      container.innerHTML = metrics.map(m => {
+        const len = m.value.length;
+        const sizeClass = len > 15 ? 'small' : len > 10 ? 'medium' : '';
+        return `
+        <div class="kpi-card">
+          <div class="kpi-label">${m.label}</div>
+          <div class="kpi-value ${sizeClass}">${m.value}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── MONTHLY RENT BAR (clickable → daily drill) ────────────────
+    function renderPaidAmountBarChart(data) {
+      const rentData = data.filter(d => d['Payment Type'] === 'Rent Installment');
+      const monthTotals = {}, monthCounts = {};
+      rentData.forEach(item => {
+        const m = item['Paid Month'], n = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(n)) return;
+        monthTotals[m] = (monthTotals[m] || 0) + n;
+        monthCounts[m] = (monthCounts[m] || 0) + 1;
+      });
+
+      const months = sortMonths(Object.keys(monthTotals));
+      const activeMonth = (selectedRentMonth && months.includes(selectedRentMonth))
+        ? selectedRentMonth : months[months.length - 1];
+
+      const colors = months.map(m =>
+        m === selectedRentMonth ? '#6FB1C9' : '#10455F'
+      );
+
+      Plotly.newPlot('bar-paid-amount', [{
+        x: months,
+        y: months.map(m => monthTotals[m]),
+        type: 'bar',
+        name: 'Rent Paid',
+        marker: { color: colors },
+        customdata: months.map(m => monthCounts[m] || 0),
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<br>%{customdata} records<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: 'Credit Card Collections — Rent' }), CONFIG);
+
+      renderDailyRentChart(data, activeMonth);
+
+      document.getElementById('bar-paid-amount').on('plotly_click', function(e) {
+        if (!e || !e.points || !e.points[0]) return;
+        const clicked = e.points[0].x;
+        selectedRentMonth = (selectedRentMonth === clicked) ? null : clicked;
+        renderPaidAmountBarChart(data);
+        renderTopPropertiesTable(data, selectedRentMonth);
+        renderTopBusinessUnitsTable(data, selectedRentMonth);
+      });
+    }
+
+    // ── DAILY RENT ───────────────────────────────────────────────
+    function renderDailyRentChart(data, month) {
+      const filtered = data.filter(d => d['Payment Type'] === 'Rent Installment' && d['Paid Month'] === month);
+      const dailyTotals = {}, dailyCounts = {};
+      filtered.forEach(item => {
+        const pd = item['Paid Date'];
+        if (!pd) return;
+        const [dd, mm, yyyy] = pd.split('-');
+        const iso = `${yyyy}-${mm}-${dd}`;
+        const n = parsePaid(item['Paid Amount']);
+        if (isNaN(n)) return;
+        dailyTotals[iso] = (dailyTotals[iso] || 0) + n;
+        dailyCounts[pd]  = (dailyCounts[pd]  || 0) + 1;
+      });
+      const dates = Object.keys(dailyTotals).sort((a, b) => new Date(a) - new Date(b));
+      const counts = dates.map(d => dailyCounts[d.split('-').reverse().join('-')] || 0);
+
+      Plotly.newPlot('daily-rent-chart', [{
+        x: dates,
+        y: dates.map(d => dailyTotals[d]),
+        type: 'bar',
+        marker: { color: '#357296' },
+        customdata: counts,
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<br>%{customdata} records<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: `Daily Rent Paid — ${month || ''}` }), CONFIG);
+    }
+
+    // ── OVERALL MONTHLY ──────────────────────────────────────────
+    function renderMonthlyTotalPaidAmountChart(data) {
+      const monthTotals = {}, monthCounts = {};
+      data.forEach(item => {
+        const m = item['Paid Month'], n = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(n)) return;
+        monthTotals[m] = (monthTotals[m] || 0) + n;
+        monthCounts[m] = (monthCounts[m] || 0) + 1;
+      });
+      const months = sortMonths(Object.keys(monthTotals));
+      Plotly.newPlot('cumulative-paid-amount', [{
+        x: months,
+        y: months.map(m => monthTotals[m]),
+        type: 'bar',
+        marker: { color: '#357296' },
+        customdata: months.map(m => monthCounts[m] || 0),
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<br>%{customdata} records<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: 'Credit Card Collections — Overall' }), CONFIG);
+    }
+
+    // ── QUARTERLY ────────────────────────────────────────────────
+    function renderQuarterlyTotalPaidAmountChart(data) {
+      const monMap = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+      const qTotals = {};
+      data.forEach(item => {
+        const pm = item['Paid Month'], n = parsePaid(item['Paid Amount']);
+        if (!pm || isNaN(n)) return;
+        const [mon, yy] = pm.split('-');
+        if (!mon || !yy || !(mon in monMap)) return;
+        const year = 2000 + parseInt(yy);
+        const q = `${year}-Q${Math.ceil(monMap[mon] / 3)}`;
+        qTotals[q] = (qTotals[q] || 0) + n;
+      });
+      const quarters = Object.keys(qTotals).sort((a, b) => {
+        const [ay, aq] = a.split('-Q').map(Number);
+        const [by, bq] = b.split('-Q').map(Number);
+        return ay !== by ? ay - by : aq - bq;
+      });
+      Plotly.newPlot('quarterly-paid-amount', [{
+        x: quarters,
+        y: quarters.map(q => qTotals[q]),
+        type: 'bar',
+        marker: { color: '#6FB1C9' },
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: 'Credit Card Collections — Quarterly' }), CONFIG);
+    }
+
+    // ── RENT BY SUB TYPE (stacked) ───────────────────────────────
+    function renderRentSubTypeStackedChart(data) {
+      const rentOnly = data.filter(d => d['Payment Type'] === 'Rent Installment');
+      const monthSub = {};
+      rentOnly.forEach(item => {
+        const m = item['Paid Month'], sub = item['Payment Sub Type'] || 'Unknown';
+        const n = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(n)) return;
+        if (!monthSub[m]) monthSub[m] = {};
+        monthSub[m][sub] = (monthSub[m][sub] || 0) + n;
+      });
+      const months = sortMonths(Object.keys(monthSub));
+      const monthTotals = {};
+      months.forEach(m => { monthTotals[m] = Object.values(monthSub[m]).reduce((a, b) => a + b, 0); });
+      const subTypes = [...new Set(months.flatMap(m => Object.keys(monthSub[m])))];
+
+      const traces = subTypes.map((sub, i) => ({
+        x: months,
+        y: months.map(m => monthSub[m][sub] || 0),
+        type: 'bar',
+        name: sub,
+        marker: { color: PALETTE[i % PALETTE.length] },
+        customdata: months.map(m => {
+          const v = monthSub[m][sub] || 0, t = monthTotals[m] || 1;
+          return [v, t, v / t * 100];
+        }),
+        hovertemplate: '<b>%{name}</b><br>AED %{customdata[0]:,.0f}<br>%{customdata[2]:.1f}% of month<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'inside',
+        insidetextanchor: 'middle',
+        cliponaxis: false,
+        textfont: { color: 'white', size: 10 }
+      }));
+
+      Plotly.newPlot('rent-subtype-stacked', traces, baseLayout({
+        title: 'Rent by Payment Sub Type',
+        barmode: 'stack'
+      }), CONFIG);
+    }
+
+    // ── SERVICE BOOKINGS (clickable → daily) ─────────────────────
+    function renderServiceBookingPaidAmountChart(data) {
+      const sb = data.filter(d => d['SR Number'] != null && String(d['SR Number']).trim() !== '');
+      const monthTotals = {}, monthCounts = {};
+      sb.forEach(item => {
+        const m = item['Paid Month'], n = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(n)) return;
+        monthTotals[m] = (monthTotals[m] || 0) + n;
+        monthCounts[m] = (monthCounts[m] || 0) + 1;
+      });
+      const months = sortMonths(Object.keys(monthTotals));
+
+      Plotly.newPlot('service-booking-paid-amount', [{
+        x: months,
+        y: months.map(m => monthTotals[m]),
+        type: 'bar',
+        marker: { color: '#357296' },
+        customdata: months.map(m => monthCounts[m] || 0),
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<br>%{customdata} records<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: 'Service Booking Payments' }), CONFIG);
+
+      const latest = months[months.length - 1];
+      if (latest) renderDailyServiceBookingChart(data, latest);
+
+      document.getElementById('service-booking-paid-amount').on('plotly_click', function(e) {
+        if (e && e.points && e.points[0]) {
+          renderDailyServiceBookingChart(data, e.points[0].x);
+        }
+      });
+    }
+
+    // ── DAILY SERVICE BOOKINGS ───────────────────────────────────
+    function renderDailyServiceBookingChart(data, month) {
+      const filtered = data.filter(d => {
+        const hasSR = d['SR Number'] != null && String(d['SR Number']).trim() !== '';
+        return hasSR && d['Paid Month'] === month;
+      });
+      const dailyTotals = {}, dailyCounts = {};
+      filtered.forEach(item => {
+        const pd = item['Paid Date'];
+        if (!pd) return;
+        const [dd, mm, yyyy] = pd.split('-');
+        const iso = `${yyyy}-${mm}-${dd}`;
+        const n = parsePaid(item['Paid Amount']);
+        if (isNaN(n)) return;
+        dailyTotals[iso] = (dailyTotals[iso] || 0) + n;
+        dailyCounts[pd]  = (dailyCounts[pd]  || 0) + 1;
+      });
+      const dates = Object.keys(dailyTotals).sort((a, b) => new Date(a) - new Date(b));
+      const counts = dates.map(d => dailyCounts[d.split('-').reverse().join('-')] || 0);
+
+      Plotly.newPlot('daily-service-bookings', [{
+        x: dates,
+        y: dates.map(d => dailyTotals[d]),
+        type: 'bar',
+        marker: { color: '#6FB1C9' },
+        customdata: counts,
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<br>%{customdata} records<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: `Daily Service Bookings — ${month || ''}` }), CONFIG);
+    }
+
+    // ── PAYMENT TYPE STACKED (%) ─────────────────────────────────
+    function renderPaymentTypeStackedChart(data) {
+      const monthlyTypes = {};
+      data.forEach(item => {
+        const m = item['Paid Month'], t = item['Payment Type'];
+        const n = parsePaid(item['Paid Amount']);
+        if (!m || !t || isNaN(n)) return;
+        if (!monthlyTypes[m]) monthlyTypes[m] = {};
+        monthlyTypes[m][t] = (monthlyTypes[m][t] || 0) + n;
+      });
+      const months = sortMonths(Object.keys(monthlyTypes));
+      const types = [...new Set(months.flatMap(m => Object.keys(monthlyTypes[m])))];
+
+      const traces = types.map((type, i) => ({
+        x: months,
+        y: months.map(m => {
+          const total = Object.values(monthlyTypes[m]).reduce((s, v) => s + v, 0);
+          return total ? (monthlyTypes[m][type] || 0) / total * 100 : 0;
+        }),
+        name: type,
+        type: 'bar',
+        marker: { color: PALETTE[i % PALETTE.length] },
+        hovertemplate: '<b>%{name}</b><br>%{y:.1f}%<extra></extra>'
+      }));
+
+      Plotly.newPlot('stacked-payment-type', traces, baseLayout({
+        title: 'Collections by Payment Type',
+        barmode: 'stack',
+        yaxis: { ticksuffix: '%' }
+      }), CONFIG);
+    }
+
+    // ── UPFRONT ADOPTION (helper) ────────────────────────────────
+    function renderUpfrontChart(data, paymentType, elementId, title) {
+      const monthly = {};
+      data.filter(d => d['Payment Type'] === paymentType).forEach(item => {
+        const m = item['Paid Month'];
+        if (!m) return;
+        if (!monthly[m]) monthly[m] = { Yes: 0, No: 0 };
+        monthly[m][(item['PaidUpfront'] || '').toLowerCase() === 'yes' ? 'Yes' : 'No']++;
+      });
+      const months = sortMonths(Object.keys(monthly));
+      const yes = months.map(m => monthly[m].Yes || 0);
+      const no  = months.map(m => monthly[m].No  || 0);
+      const tot = months.map((_, i) => yes[i] + no[i]);
+
+      Plotly.newPlot(elementId, [
+        {
+          x: months, y: yes.map((c, i) => tot[i] ? c / tot[i] * 100 : 0),
+          name: 'Paid Upfront: Yes', type: 'bar',
+          customdata: yes.map((c, i) => [c, tot[i]]),
+          hovertemplate: '<b>Paid Upfront: Yes</b><br>%{y:.1f}%<br>%{customdata[0]} of %{customdata[1]}<extra></extra>',
+          marker: { color: '#10455F' }
+        },
+        {
+          x: months, y: no.map((c, i) => tot[i] ? c / tot[i] * 100 : 0),
+          name: 'Paid Upfront: No', type: 'bar',
+          customdata: no.map((c, i) => [c, tot[i]]),
+          hovertemplate: '<b>Paid Upfront: No</b><br>%{y:.1f}%<br>%{customdata[0]} of %{customdata[1]}<extra></extra>',
+          marker: { color: '#357296' }
+        }
+      ], baseLayout({ title, barmode: 'stack', yaxis: { ticksuffix: '%' } }), CONFIG);
+    }
+
+    function renderPaidUpfrontStackedChart(data) {
+      renderUpfrontChart(data, 'Security Deposit', 'stacked-paidupfront', 'Upfront Payment Adoption — New Bookings');
+    }
+    function renderPaidUpfrontStackedChartRenewal(data) {
+      renderUpfrontChart(data, 'Renewal Fee', 'stacked-paidupfront-renewal', 'Upfront Payment Adoption — Renewals');
+    }
+
+    // ── PROCESSING FEE (actual) ──────────────────────────────────
+    function renderProcessingFeeChart(data) {
+      const seen = new Set();
+      const unique = data.filter(d => {
+        if (d['Order ID'] != null && !seen.has(d['Order ID'])) { seen.add(d['Order ID']); return true; }
+        return false;
+      });
+      const monthTotals = {};
+      unique.forEach(item => {
+        const m = item['Paid Month'], n = parsePaid(item['Processing Fee']);
+        if (!m || isNaN(n)) return;
+        monthTotals[m] = (monthTotals[m] || 0) + n;
+      });
+      const months = sortMonths(Object.keys(monthTotals));
+      Plotly.newPlot('processing-fee-chart', [{
+        x: months,
+        y: months.map(m => monthTotals[m]),
+        type: 'bar',
+        marker: { color: '#1D5F3C' },
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: 'Monthly Processing Fee (Actual)' }), CONFIG);
+    }
+
+    // ── PROCESSING FEE ESTIMATE @ 1.028% from Sep 2025 ──────────
+    function renderProcessingFeeEstimate1028(data) {
+      const monMap = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+      const THRESHOLD = 2025 * 100 + 9;
+      function toYM(s) {
+        const [m, yy] = s.split('-');
+        return (2000 + parseInt(yy, 10)) * 100 + (monMap[m] || 0);
+      }
+      const monthTotals = {};
+      data.forEach(item => {
+        const m = item['Paid Month'], n = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(n)) return;
+        monthTotals[m] = (monthTotals[m] || 0) + n;
+      });
+      const months = sortMonths(Object.keys(monthTotals));
+      Plotly.newPlot('processing-fee-estimate-1028', [{
+        x: months,
+        y: months.map(m => toYM(m) >= THRESHOLD ? monthTotals[m] * 0.01028 : 0),
+        type: 'bar',
+        marker: { color: '#6FB1C9' },
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: 'Processing Fee Revenue (Est. @ 1.028% from Sep 2025)' }), CONFIG);
+    }
+
+    // ── TOP PROPERTIES TABLE ─────────────────────────────────────
+    function renderTopPropertiesTable(data, monthFilter) {
+      const rows = {};
+      data.forEach(item => {
+        const prop = item['Property'];
+        if (!prop || (monthFilter && item['Paid Month'] !== monthFilter)) return;
+        const n = parsePaid(item['Paid Amount']);
+        if (isNaN(n)) return;
+        if (!rows[prop]) rows[prop] = { rent: 0, renewal: 0, ejari: 0, servicebooking: 0 };
+        if (item['Payment Type'] === 'Rent Installment') rows[prop].rent    += n;
+        if (item['Payment Type'] === 'Renewal Fee')      rows[prop].renewal += n;
+        if (item['Payment Type'] === 'Ejari Fee')        rows[prop].ejari   += n;
+        if (item['SR Number'] != null && String(item['SR Number']).trim() !== '') rows[prop].servicebooking += n;
+      });
+      const top = Object.entries(rows).map(([p, v]) => ({ p, ...v })).sort((a, b) => b.rent - a.rent).slice(0, 15);
+      document.getElementById('top-properties-table').innerHTML = `
+        <div class="table-title">Top 15 Properties by Rent Paid${monthFilter ? ` &mdash; ${monthFilter}` : ''}</div>
+        <table class="data-table">
+          <thead><tr><th>Property</th><th>Rent (AED)</th><th>Renewal Fees (AED)</th><th>Ejari Fees (AED)</th><th>Service Bookings (AED)</th></tr></thead>
+          <tbody>${top.map(r => `
+            <tr>
+              <td>${r.p}</td>
+              <td>${Math.round(r.rent).toLocaleString()}</td>
+              <td>${Math.round(r.renewal).toLocaleString()}</td>
+              <td>${Math.round(r.ejari).toLocaleString()}</td>
+              <td>${Math.round(r.servicebooking).toLocaleString()}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    // ── TOP BUSINESS UNITS TABLE ─────────────────────────────────
+    function renderTopBusinessUnitsTable(data, monthFilter) {
+      const rows = {};
+      data.forEach(item => {
+        const bu = item['Business Unit'];
+        if (!bu || (monthFilter && item['Paid Month'] !== monthFilter)) return;
+        const n = parsePaid(item['Paid Amount']);
+        if (isNaN(n)) return;
+        if (!rows[bu]) rows[bu] = { rent: 0, renewal: 0, ejari: 0, servicebooking: 0 };
+        if (item['Payment Type'] === 'Rent Installment') rows[bu].rent    += n;
+        if (item['Payment Type'] === 'Renewal Fee')      rows[bu].renewal += n;
+        if (item['Payment Type'] === 'Ejari Fee')        rows[bu].ejari   += n;
+        if (item['SR Number'] != null && String(item['SR Number']).trim() !== '') rows[bu].servicebooking += n;
+      });
+      const top = Object.entries(rows).map(([b, v]) => ({ b, ...v })).sort((a, b) => b.rent - a.rent).slice(0, 15);
+      document.getElementById('top-business-units-table').innerHTML = `
+        <div class="table-title">Top Business Units by Rent Paid${monthFilter ? ` &mdash; ${monthFilter}` : ''}</div>
+        <table class="data-table">
+          <thead><tr><th>Business Unit</th><th>Rent (AED)</th><th>Renewal Fees (AED)</th><th>Ejari Fees (AED)</th><th>Service Bookings (AED)</th></tr></thead>
+          <tbody>${top.map(r => `
+            <tr>
+              <td>${r.b}</td>
+              <td>${Math.round(r.rent).toLocaleString()}</td>
+              <td>${Math.round(r.renewal).toLocaleString()}</td>
+              <td>${Math.round(r.ejari).toLocaleString()}</td>
+              <td>${Math.round(r.servicebooking).toLocaleString()}</td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }
+
+    // ── YEARLY SUMMARY ───────────────────────────────────────────
+    function renderYearlySummary(data) {
+      function toYear(pm) {
+        if (!pm) return null;
+        const parts = pm.split('-');
+        if (parts.length < 2) return null;
+        const y = parts[1];
+        return y.length === 2 ? '20' + y : y;
+      }
+      const overall = {}, rent = {}, users = {}, txns = {};
+      data.forEach(d => {
+        const year = toYear(d['Paid Month']);
+        const n = parsePaid(d['Paid Amount']);
+        if (!year || isNaN(n)) return;
+        overall[year] = (overall[year] || 0) + n;
+        if (d['Payment Type'] === 'Rent Installment') {
+          rent[year] = (rent[year] || 0) + n;
+          const uk = (d['Unit Code'] || '') + '|' + (d['Organization'] || '');
+          if (!users[year]) users[year] = new Set();
+          users[year].add(uk);
+          if (!txns[year]) txns[year] = new Set();
+          if (d['Order ID'] != null) txns[year].add(d['Order ID']);
+        }
+      });
+      const years = Object.keys(overall).sort((a, b) => +a - +b);
+      const displayYears = years.map(y => y === '2024' ? '2024 (May–Dec)' : y);
+
+      Plotly.newPlot('yearly-summary', [{
+        type: 'table',
+        header: {
+          values: ['Year', 'Overall Payments', 'Rent Payments', '% Rent', 'Unique Users', 'Rent Transactions'],
+          align: 'center',
+          fill: { color: '#10455F' },
+          font: { color: 'white', size: 12, family: FONT_FAMILY },
+          line: { color: '#2d4060' },
+          height: 36
+        },
+        cells: {
+          values: [
+            displayYears,
+            years.map(y => fmtAED(overall[y] || 0)),
+            years.map(y => fmtAED(rent[y] || 0)),
+            years.map(y => { const o = overall[y] || 0, r = rent[y] || 0; return o ? (r / o * 100).toFixed(1) + '%' : '0.0%'; }),
+            years.map(y => users[y] ? users[y].size : 0),
+            years.map(y => txns[y]  ? txns[y].size  : 0)
+          ],
+          align: 'center',
+          fill: { color: [BG, '#243248', BG, '#243248', BG, '#243248'] },
+          font: { color: TEXT, size: 12, family: FONT_FAMILY },
+          line: { color: '#2d4060' },
+          height: 32
+        }
+      }], baseLayout({ title: 'Year-over-Year Summary', margin: { t: 56, l: 20, r: 20, b: 20 } }), CONFIG);
+    }
+
+    // ── EARLY RENT WITH RENEWALS ────────────────────────────────
+    function parseFlexDate(str) {
+      if (!str) return null;
+      // DD-MM-YYYY
+      if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(str)) {
+        const [d, m, y] = str.split('-');
+        return new Date(+y, +m - 1, +d);
+      }
+      // YYYY-MM-DD
+      if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) {
+        const [y, m, d] = str.split('-');
+        return new Date(+y, +m - 1, +d);
+      }
+      // DD/MM/YYYY
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+        const [d, m, y] = str.split('/');
+        return new Date(+y, +m - 1, +d);
+      }
+      const d = new Date(str);
+      return isNaN(d) ? null : d;
+    }
+
+    function renderEarlyRentRenewalChart(data) {
+      // Rent Installment with Renewal sub-type
+      const records = [];
+      data.forEach(item => {
+        if (item['Payment Type'] !== 'Rent Installment') return;
+        const sub = (item['Payment Sub Type'] || '').toLowerCase();
+        if (!sub.includes('renewal')) return;
+
+        const paidDateObj  = parseFlexDate(item['Paid Date']);
+        const leaseStartObj = parseFlexDate(item['Lease Start Date']);
+        const amt = parsePaid(item['Paid Amount']);
+        const month = item['Paid Month'];
+        if (!paidDateObj || !leaseStartObj || !month || isNaN(amt)) return;
+
+        const diffDays = Math.round((leaseStartObj - paidDateObj) / 86400000);
+        records.push({ month, daysEarly: diffDays, amount: amt });
+      });
+
+      // Group by month
+      const byMonth = {};
+      records.forEach(r => {
+        if (!byMonth[r.month]) byMonth[r.month] = { totalDays: 0, count: 0, totalAmt: 0 };
+        byMonth[r.month].totalDays += r.daysEarly;
+        byMonth[r.month].count++;
+        byMonth[r.month].totalAmt += r.amount;
+      });
+
+      const allMonths = sortMonths(Object.keys(byMonth));
+      const last6 = allMonths.slice(-6);
+
+      if (last6.length === 0) {
+        document.getElementById('early-rent-renewal').innerHTML =
+          '<p style="text-align:center;color:#475569;padding:40px;">No renewal-linked rent records with Lease Start Date found.</p>';
+        return;
+      }
+
+      const avgDays  = last6.map(m => Math.round(byMonth[m].totalDays / byMonth[m].count));
+      const counts   = last6.map(m => byMonth[m].count);
+      const amounts  = last6.map(m => byMonth[m].totalAmt);
+
+      // Annotations showing tenant count + AED under each bar
+      const annotations = last6.map((m, i) => ({
+        x: m,
+        y: avgDays[i],
+        yshift: 28,
+        text: `<b>${counts[i]}</b> tenants  ·  <b>AED ${Math.round(amounts[i]).toLocaleString()}</b>`,
+        showarrow: false,
+        font: { size: 11, color: '#94a3b8', family: FONT_FAMILY },
+        yanchor: 'bottom'
+      }));
+
+      Plotly.newPlot('early-rent-renewal', [{
+        x: last6,
+        y: avgDays,
+        type: 'bar',
+        marker: {
+          color: avgDays.map(d => d >= 0 ? '#1D5F3C' : '#7f1d1d'),
+          line: { color: avgDays.map(d => d >= 0 ? '#2d8a5e' : '#b91c1c'), width: 1 }
+        },
+        customdata: last6.map((m, i) => [counts[i], amounts[i], avgDays[i]]),
+        hovertemplate: '<b>%{x}</b><br>Avg <b>%{customdata[2]} days</b> before lease start<br>%{customdata[0]} tenants<br>AED %{customdata[1]:,.0f} collected early<extra></extra>',
+        texttemplate: '%{y} days',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: '#e2e8f0', size: 14, family: FONT_FAMILY },
+        width: last6.length === 1 ? [0.4] : undefined
+      }], baseLayout({
+        title: 'Avg Days Rent Collected Before Lease Start (Renewal Tenants — Last 6 Months)',
+        annotations: annotations,
+        yaxis: { title: 'Days Before Lease Start' }
+      }), CONFIG);
+    }
+
+    // ── RENDER ALL ───────────────────────────────────────────────
+    function renderCharts(data) {
+      const run = (fn, label) => { try { fn(data); } catch(e) { console.warn('[dashboard]', label, e); } };
+      run(renderHeadlineStats,                  'headline stats');
+      run(renderPaidAmountBarChart,             'rent bar');
+      run(renderMonthlyTotalPaidAmountChart,    'overall monthly');
+      run(renderQuarterlyTotalPaidAmountChart,  'quarterly');
+      run(renderRentSubTypeStackedChart,        'rent subtype');
+      run(renderEarlyRentRenewalChart,          'early rent renewal');
+      run(renderServiceBookingPaidAmountChart,  'service bookings');
+      run(renderPaymentTypeStackedChart,        'payment type');
+      run(renderPaidUpfrontStackedChart,        'upfront SD');
+      run(renderPaidUpfrontStackedChartRenewal, 'upfront renewal');
+      run(renderProcessingFeeChart,             'proc fee actual');
+      run(renderProcessingFeeEstimate1028,      'proc fee est');
+      run(renderTopPropertiesTable,             'top properties');
+      run(renderTopBusinessUnitsTable,          'top BUs');
+      run(renderYearlySummary,                  'yearly summary');
+    }
+  </script>
+
+  <!-- Firebase auth guard -->
+  <script type="module">
+    import { auth, db, ADMIN_EMAIL, onAuthStateChanged, signOut, doc, getDoc } from './firebase-init.js';
+
+    document.getElementById('logout-btn').addEventListener('click', function() {
+      this.disabled = true;
+      signOut(auth).then(function() { window.location.href = 'index.html'; });
+    });
+
+    onAuthStateChanged(auth, async function(user) {
+      if (!user) { window.location.href = 'index.html'; return; }
+      try {
+        var email = user.email.toLowerCase();
+        var userDoc = await getDoc(doc(db, 'users', email));
+        if (!userDoc.exists() || !userDoc.data().enabled) {
+          await signOut(auth);
+          window.location.href = 'index.html';
+          return;
+        }
+        if (userDoc.data().isAdmin) {
+          document.getElementById('admin-link').style.display = 'inline-flex';
+        }
+        document.body.classList.add('authenticated');
+      } catch (e) {
+        console.error('Auth check failed:', e);
+        await signOut(auth);
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>

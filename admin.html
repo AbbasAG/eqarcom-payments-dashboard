@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>User Management — EQARCOM Digital Payments</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f172a; color: #e2e8f0; min-height: 100vh;
+      display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px;
+    }
+    body:not(.authenticated) .admin-container { visibility: hidden; }
+
+    .admin-container { max-width: 800px; width: 100%; }
+
+    /* ── Header bar ── */
+    .admin-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .admin-header h1 { font-size: 22px; font-weight: 800; color: #f1f5f9; }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
+      color: #6FB1C9; text-decoration: none; font-size: 13px; font-weight: 600;
+      transition: background 0.15s;
+    }
+    .back-link:hover { background: rgba(255,255,255,0.18); }
+
+    /* ── Cards ── */
+    .card {
+      background: #1e293b; border: 1px solid #2d4060; border-radius: 16px;
+      padding: 24px; margin-bottom: 24px;
+    }
+    .card h2 { font-size: 15px; font-weight: 700; color: #f1f5f9; margin-bottom: 20px; }
+
+    /* ── Add user form ── */
+    .add-form { display: flex; gap: 12px; flex-wrap: wrap; }
+    .add-form input {
+      flex: 1; min-width: 180px; padding: 10px 14px; background: #0f172a;
+      border: 1px solid #334155; border-radius: 8px; color: #e2e8f0;
+      font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s;
+    }
+    .add-form input:focus { border-color: #357296; }
+    .add-btn {
+      padding: 10px 20px; background: #10455F; color: #e2e8f0;
+      border: none; border-radius: 8px; font-family: inherit; font-size: 13px;
+      font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    }
+    .add-btn:hover { background: #357296; }
+    .add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .form-msg {
+      width: 100%; font-size: 12px; margin-top: 10px; padding: 8px 12px;
+      border-radius: 6px; display: none;
+    }
+    .form-msg.error { background: rgba(127,29,29,0.25); border: 1px solid rgba(185,28,28,0.35); color: #fca5a5; }
+    .form-msg.success { background: rgba(29,95,60,0.25); border: 1px solid rgba(45,138,94,0.35); color: #86efac; }
+
+    /* ── Users table ── */
+    .users-table { width: 100%; border-collapse: collapse; }
+    .users-table th {
+      text-align: left; font-size: 11px; font-weight: 700; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 14px;
+      border-bottom: 1px solid #243248;
+    }
+    .users-table td {
+      padding: 12px 14px; font-size: 13px; border-bottom: 1px solid #1a2438;
+    }
+    .users-table tbody tr:hover td { background: #243248; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge-yes { background: rgba(29,95,60,0.3); color: #86efac; }
+    .badge-no { background: rgba(100,116,139,0.2); color: #94a3b8; }
+    .badge-admin { background: rgba(16,69,95,0.4); color: #6FB1C9; }
+
+    /* ── Toggle switch ── */
+    .toggle { position: relative; display: inline-block; width: 42px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: #334155; border-radius: 24px; transition: 0.25s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute;
+      height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%; transition: 0.25s;
+    }
+    input:checked + .toggle-slider { background: #1D5F3C; }
+    input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    .loading-row td { text-align: center; color: #64748b; padding: 24px; }
+
+    /* ── Portrait warning ── */
+    .portrait-warning {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: #0f172a; align-items: center; justify-content: center;
+      flex-direction: column; text-align: center; padding: 40px;
+      font-family: 'Inter', system-ui, sans-serif; color: #e2e8f0;
+    }
+    .portrait-warning svg { width: 64px; height: 64px; margin-bottom: 24px; color: #6FB1C9; }
+    .portrait-warning h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+    .portrait-warning p { font-size: 14px; color: #94a3b8; max-width: 300px; line-height: 1.5; }
+    @media screen and (max-width: 767px) and (orientation: portrait) {
+      .portrait-warning { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Portrait warning -->
+  <div class="portrait-warning">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2" transform="rotate(90 12 12)"/>
+      <path d="M12 18h.01"/>
+    </svg>
+    <h2>Please rotate your device</h2>
+    <p>This dashboard is optimised for landscape viewing. Please rotate your device to landscape mode.</p>
+  </div>
+
+  <div class="admin-container">
+    <div class="admin-header">
+      <h1>User Management</h1>
+      <a href="dashboard.html" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+        Back to Dashboard
+      </a>
+    </div>
+
+    <!-- Add User -->
+    <div class="card">
+      <h2>Add New User</h2>
+      <form class="add-form" id="add-form">
+        <input type="text" id="new-name" placeholder="Full Name" required>
+        <input type="email" id="new-email" placeholder="Email Address" required>
+        <button type="submit" class="add-btn" id="add-btn">Add User</button>
+      </form>
+      <div class="form-msg" id="form-msg"></div>
+    </div>
+
+    <!-- Users List -->
+    <div class="card">
+      <h2>All Users</h2>
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Registered</th>
+            <th>Enabled</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+          <tr class="loading-row"><td colspan="5">Loading users&hellip;</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      auth, db, ADMIN_EMAIL,
+      onAuthStateChanged, signOut,
+      doc, getDoc, setDoc, getDocs, updateDoc, collection
+    } from './firebase-init.js';
+
+    // ── Auth guard: admin only ──
+    onAuthStateChanged(auth, async function(user) {
+      if (!user) { window.location.href = 'index.html'; return; }
+
+      var email = user.email.toLowerCase();
+      try {
+        var userDoc = await getDoc(doc(db, 'users', email));
+        if (!userDoc.exists() || !userDoc.data().isAdmin) {
+          window.location.href = 'dashboard.html';
+          return;
+        }
+        document.body.classList.add('authenticated');
+        loadUsers();
+      } catch (e) {
+        console.error('Admin auth failed:', e);
+        window.location.href = 'dashboard.html';
+      }
+    });
+
+    // ── Helpers ──
+    function escapeHtml(str) {
+      var div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    // ── Load and render users table ──
+    async function loadUsers() {
+      var tbody = document.getElementById('users-tbody');
+      try {
+        var snapshot = await getDocs(collection(db, 'users'));
+        tbody.innerHTML = '';
+
+        if (snapshot.empty) {
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="5">No users yet</td></tr>';
+          return;
+        }
+
+        var rows = [];
+        snapshot.forEach(function(docSnap) { rows.push(docSnap.data()); });
+
+        // Sort: admin first, then alphabetical
+        rows.sort(function(a, b) {
+          if (a.isAdmin && !b.isAdmin) return -1;
+          if (!a.isAdmin && b.isAdmin) return 1;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+
+        rows.forEach(function(data) {
+          var tr = document.createElement('tr');
+          var roleBadge = data.isAdmin
+            ? '<span class="badge badge-admin">Admin</span>'
+            : '<span class="badge badge-no">User</span>';
+          var regBadge = data.registered
+            ? '<span class="badge badge-yes">Yes</span>'
+            : '<span class="badge badge-no">No</span>';
+
+          tr.innerHTML =
+            '<td>' + escapeHtml(data.name) + '</td>' +
+            '<td>' + escapeHtml(data.email) + '</td>' +
+            '<td>' + roleBadge + '</td>' +
+            '<td>' + regBadge + '</td>' +
+            '<td><label class="toggle"><input type="checkbox"' +
+            (data.enabled ? ' checked' : '') +
+            ' data-email="' + escapeHtml(data.email) + '"><span class="toggle-slider"></span></label></td>';
+          tbody.appendChild(tr);
+        });
+
+        // Attach toggle handlers
+        tbody.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+          cb.addEventListener('change', async function() {
+            var email = this.getAttribute('data-email');
+            try {
+              await updateDoc(doc(db, 'users', email), { enabled: this.checked });
+            } catch (err) {
+              console.error('Toggle failed:', err);
+              this.checked = !this.checked; // revert on failure
+            }
+          });
+        });
+      } catch (err) {
+        console.error('Load users failed:', err);
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="5">Failed to load users</td></tr>';
+      }
+    }
+
+    // ── Add user form ──
+    var formMsg = document.getElementById('form-msg');
+    document.getElementById('add-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      formMsg.style.display = 'none';
+
+      var nameEl = document.getElementById('new-name');
+      var emailEl = document.getElementById('new-email');
+      var addBtn = document.getElementById('add-btn');
+
+      var name = nameEl.value.trim();
+      var email = emailEl.value.trim().toLowerCase();
+
+      addBtn.disabled = true;
+      addBtn.textContent = 'Adding\u2026';
+
+      try {
+        // Check if already exists
+        var existing = await getDoc(doc(db, 'users', email));
+        if (existing.exists()) {
+          formMsg.className = 'form-msg error';
+          formMsg.textContent = 'A user with this email already exists.';
+          formMsg.style.display = 'block';
+          addBtn.disabled = false;
+          addBtn.textContent = 'Add User';
+          return;
+        }
+
+        await setDoc(doc(db, 'users', email), {
+          name: name,
+          email: email,
+          enabled: true,
+          isAdmin: false,
+          registered: false
+        });
+
+        nameEl.value = '';
+        emailEl.value = '';
+        formMsg.className = 'form-msg success';
+        formMsg.textContent = 'User "' + name + '" added. They can now register at the registration page.';
+        formMsg.style.display = 'block';
+        addBtn.disabled = false;
+        addBtn.textContent = 'Add User';
+        loadUsers();
+      } catch (err) {
+        formMsg.className = 'form-msg error';
+        formMsg.textContent = 'Failed to add user: ' + err.message;
+        formMsg.style.display = 'block';
+        addBtn.disabled = false;
+        addBtn.textContent = 'Add User';
+      }
+    });
+  </script>
+</body>
+</html>
