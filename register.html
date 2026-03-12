@@ -57,32 +57,9 @@
     .auth-link a:hover { text-decoration: underline; }
     .pw-hint { font-size: 11px; color: #64748b; margin-top: 4px; }
 
-    /* ── Portrait warning ── */
-    .portrait-warning {
-      display: none; position: fixed; inset: 0; z-index: 9999;
-      background: #0f172a; align-items: center; justify-content: center;
-      flex-direction: column; text-align: center; padding: 40px;
-      font-family: 'Inter', system-ui, sans-serif; color: #e2e8f0;
-    }
-    .portrait-warning svg { width: 64px; height: 64px; margin-bottom: 24px; color: #6FB1C9; }
-    .portrait-warning h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
-    .portrait-warning p { font-size: 14px; color: #94a3b8; max-width: 300px; line-height: 1.5; }
-    @media screen and (max-width: 767px) and (orientation: portrait) {
-      .portrait-warning { display: flex !important; }
-    }
   </style>
 </head>
 <body>
-
-  <!-- Portrait warning -->
-  <div class="portrait-warning">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="4" y="2" width="16" height="20" rx="2" ry="2" transform="rotate(90 12 12)"/>
-      <path d="M12 18h.01"/>
-    </svg>
-    <h2>Please rotate your device</h2>
-    <p>This dashboard is optimised for landscape viewing. Please rotate your device to landscape mode.</p>
-  </div>
 
   <div class="auth-card">
     <img src="logo.png" alt="EQARCOM" class="auth-logo">
