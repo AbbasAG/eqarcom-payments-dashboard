@@ -7,12 +7,12 @@ import { getFirestore, doc, getDoc, setDoc, getDocs, collection, updateDoc }
 
 // ── Firebase config — replace with your project's values ──
 const firebaseConfig = {
-  apiKey: "PLACEHOLDER",
-  authDomain: "PLACEHOLDER.firebaseapp.com",
-  projectId: "PLACEHOLDER",
-  storageBucket: "PLACEHOLDER.firebasestorage.app",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000"
+  apiKey: "AIzaSyBtjQE76mHJGVCIDqlkVuVXq_01ogM7lqw",
+  authDomain: "eqarcom-dashboard.firebaseapp.com",
+  projectId: "eqarcom-dashboard",
+  storageBucket: "eqarcom-dashboard.firebasestorage.app",
+  messagingSenderId: "859501858708",
+  appId: "1:859501858708:web:ae32ef5ce5541cf0ab0981"
 };
 
 const app = initializeApp(firebaseConfig);
