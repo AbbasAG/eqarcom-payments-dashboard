@@ -531,6 +531,8 @@
       const rentPaid  = rentData.reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
       const ytdPaid   = data.filter(d => d['Paid Month'] && d['Paid Month'].endsWith(ytdSuffix))
                             .reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
+      const ytdRentPaid = data.filter(d => d['Payment Type'] === 'Rent Installment' && d['Paid Month'] && d['Paid Month'].endsWith(ytdSuffix))
+                              .reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
 
       const uniqueTransactions = new Set(data.map(d => d['Order ID'])).size;
       const rentTransactions   = new Set(rentData.map(d => d['Order ID'])).size;
@@ -538,12 +540,13 @@
       const rentUsers          = new Set(rentData.map(d => (d['Unit Code'] || '') + '|' + (d['Organization'] || ''))).size;
 
       const metrics = [
-        { label: 'Payments Processed — Overall',       value: fmtAED(totalPaid) },
-        { label: `Payments Processed — YTD ${currentYear}`, value: fmtAED(ytdPaid) },
-        { label: 'Payments Processed — Rent',          value: fmtAED(rentPaid) },
+        { label: 'Payments Processed — Overall All-Time',  value: fmtAED(totalPaid) },
+        { label: 'Payments Processed — Rent All-Time',     value: fmtAED(rentPaid) },
+        { label: `Payments Processed — YTD ${currentYear} Overall`, value: fmtAED(ytdPaid) },
+        { label: `Payments Processed — YTD ${currentYear} Rent`, value: fmtAED(ytdRentPaid) },
         { label: 'Total Transactions',                 value: uniqueTransactions.toLocaleString() },
-        { label: 'Rent Transactions',                  value: rentTransactions.toLocaleString() },
         { label: 'Unique Users',                       value: uniqueUsers.toLocaleString() },
+        { label: 'Rent Transactions',                  value: rentTransactions.toLocaleString() },
         { label: 'Users Paying Rent',                  value: rentUsers.toLocaleString() },
       ];
 
