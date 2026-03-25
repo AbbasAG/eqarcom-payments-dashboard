@@ -415,6 +415,7 @@
     // ── State ────────────────────────────────────────────────────
     let allData = [];
     let selectedRentMonth = null;
+    let userAllowedOrgs = null; // null = all (admin), array = restricted
 
     // ── Brand colours ────────────────────────────────────────────
     const PALETTE = ['#10455F', '#357296', '#6FB1C9', '#1D5F3C', '#0E2F44', '#99D3E4', '#4a9eca', '#266a8c'];
@@ -469,7 +470,16 @@
     // ── Load data (shared by auto-fetch and manual upload) ─────
     var dataLastUpdated = '';
     function loadData(json, source) {
-      allData = Array.isArray(json) ? json : [json];
+      var raw = Array.isArray(json) ? json : [json];
+      // Filter by allowed organizations if restricted
+      if (window.userAllowedOrgs && Array.isArray(window.userAllowedOrgs)) {
+        userAllowedOrgs = window.userAllowedOrgs;
+      }
+      if (userAllowedOrgs && Array.isArray(userAllowedOrgs)) {
+        allData = raw.filter(d => userAllowedOrgs.includes(d['Organization']));
+      } else {
+        allData = raw;
+      }
       var info = `${source} · ${allData.length.toLocaleString()} records`;
       if (dataLastUpdated) info += ` · Updated ${dataLastUpdated}`;
       document.getElementById('data-timestamp').textContent = info;
@@ -1194,11 +1204,13 @@
           window.location.href = 'index.html';
           return;
         }
-        if (userDoc.data().isAdmin) {
+        var userData = userDoc.data();
+        if (userData.isAdmin) {
           document.getElementById('admin-link').style.display = 'inline-flex';
           document.getElementById('admin-controls').style.display = 'flex';
           document.getElementById('header-subtitle').style.display = 'block';
           document.getElementById('processing-fees-section').style.display = 'block';
+          window.userAllowedOrgs = null; // admins see all
           // Plotly charts rendered while hidden have zero width — force relayout
           setTimeout(function() {
             var fee1 = document.getElementById('processing-fee-chart');
@@ -1206,8 +1218,18 @@
             if (fee1 && fee1.data) window.Plotly.relayout(fee1, {autosize: true});
             if (fee2 && fee2.data) window.Plotly.relayout(fee2, {autosize: true});
           }, 500);
+        } else {
+          // Non-admin: apply org restrictions
+          window.userAllowedOrgs = Array.isArray(userData.allowedOrgs) ? userData.allowedOrgs : null;
         }
         document.body.classList.add('authenticated');
+        // If data was already loaded before auth resolved, re-filter
+        if (allData.length > 0) {
+          // Re-fetch to apply org filter
+          fetch('./data.json', { cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null)
+            .then(json => { if (json) loadData(json, 'data.json'); });
+        }
         // Record last visited timestamp (fire-and-forget)
         updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});
       } catch (e) {

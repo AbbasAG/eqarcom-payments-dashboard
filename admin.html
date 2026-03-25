@@ -100,6 +100,17 @@
 
     .loading-row td { text-align: center; color: #64748b; padding: 24px; }
 
+    /* ── Org selector ── */
+    .org-selector { display: flex; flex-direction: column; gap: 4px; }
+    .org-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #cbd5e1; cursor: pointer; white-space: nowrap; }
+    .org-check input[type="checkbox"] {
+      width: 14px; height: 14px; accent-color: #357296; cursor: pointer;
+    }
+    .org-all-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 10px; font-weight: 600; background: rgba(16,69,95,0.4); color: #6FB1C9;
+    }
+
     /* ── Portrait warning ── */
     .portrait-warning {
       display: none; position: fixed; inset: 0; z-index: 9999;
@@ -156,13 +167,14 @@
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Organizations</th>
             <th>Registered</th>
             <th>Last Visited</th>
             <th>Enabled</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
-          <tr class="loading-row"><td colspan="6">Loading users&hellip;</td></tr>
+          <tr class="loading-row"><td colspan="7">Loading users&hellip;</td></tr>
         </tbody>
       </table>
     </div>
@@ -201,6 +213,25 @@
       return div.innerHTML;
     }
 
+    // All known organizations
+    const ALL_ORGS = ['AL GHURAIR PROPERTIES', 'BETTER REALTY'];
+
+    function buildOrgSelector(userEmail, userOrgs, isAdmin) {
+      // Admins always see all — show badge
+      if (isAdmin) return '<span class="org-all-badge">All (Admin)</span>';
+
+      // If not set yet, default to all orgs
+      var currentOrgs = Array.isArray(userOrgs) ? userOrgs : ALL_ORGS.slice();
+
+      return '<div class="org-selector">' + ALL_ORGS.map(function(org) {
+        var checked = currentOrgs.includes(org) ? ' checked' : '';
+        var id = 'org-' + userEmail.replace(/[@.]/g, '_') + '-' + org.replace(/\s/g, '_');
+        return '<label class="org-check">' +
+          '<input type="checkbox" data-org-email="' + escapeHtml(userEmail) + '" data-org="' + escapeHtml(org) + '"' + checked + '>' +
+          org + '</label>';
+      }).join('') + '</div>';
+    }
+
     // ── Load and render users table ──
     async function loadUsers() {
       var tbody = document.getElementById('users-tbody');
@@ -209,7 +240,7 @@
         tbody.innerHTML = '';
 
         if (snapshot.empty) {
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="6">No users yet</td></tr>';
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">No users yet</td></tr>';
           return;
         }
 
@@ -231,7 +262,7 @@
           var regBadge = data.registered
             ? '<span class="badge badge-yes">Yes</span>'
             : '<span class="badge badge-no">No</span>';
-          var lastVisited = '—';
+          var lastVisited = '\u2014';
           if (data.lastVisited) {
             var d = new Date(data.lastVisited);
             lastVisited = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -242,6 +273,7 @@
             '<td>' + escapeHtml(data.name) + '</td>' +
             '<td>' + escapeHtml(data.email) + '</td>' +
             '<td>' + roleBadge + '</td>' +
+            '<td>' + buildOrgSelector(data.email, data.allowedOrgs, data.isAdmin) + '</td>' +
             '<td>' + regBadge + '</td>' +
             '<td style="color:#94a3b8;font-size:12px;">' + lastVisited + '</td>' +
             '<td><label class="toggle"><input type="checkbox"' +
@@ -250,21 +282,40 @@
           tbody.appendChild(tr);
         });
 
-        // Attach toggle handlers
-        tbody.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+        // Attach enabled toggle handlers
+        tbody.querySelectorAll('input[data-email]').forEach(function(cb) {
           cb.addEventListener('change', async function() {
             var email = this.getAttribute('data-email');
             try {
               await updateDoc(doc(db, 'users', email), { enabled: this.checked });
             } catch (err) {
               console.error('Toggle failed:', err);
-              this.checked = !this.checked; // revert on failure
+              this.checked = !this.checked;
+            }
+          });
+        });
+
+        // Attach org checkbox handlers
+        tbody.querySelectorAll('input[data-org-email]').forEach(function(cb) {
+          cb.addEventListener('change', async function() {
+            var email = this.getAttribute('data-org-email');
+            // Gather all org checkboxes for this user
+            var checkboxes = tbody.querySelectorAll('input[data-org-email="' + email + '"]');
+            var selectedOrgs = [];
+            checkboxes.forEach(function(c) {
+              if (c.checked) selectedOrgs.push(c.getAttribute('data-org'));
+            });
+            try {
+              await updateDoc(doc(db, 'users', email), { allowedOrgs: selectedOrgs });
+            } catch (err) {
+              console.error('Org update failed:', err);
+              this.checked = !this.checked;
             }
           });
         });
       } catch (err) {
         console.error('Load users failed:', err);
-        tbody.innerHTML = '<tr class="loading-row"><td colspan="6">Failed to load users</td></tr>';
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Failed to load users</td></tr>';
       }
     }
 
