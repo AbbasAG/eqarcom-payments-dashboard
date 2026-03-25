@@ -199,6 +199,7 @@
           return;
         }
         document.body.classList.add('authenticated');
+        await fetchOrganizations();
         loadUsers();
       } catch (e) {
         console.error('Admin auth failed:', e);
@@ -213,8 +214,21 @@
       return div.innerHTML;
     }
 
-    // All known organizations
-    const ALL_ORGS = ['AL GHURAIR PROPERTIES', 'BETTER REALTY'];
+    // Dynamically loaded from data.json
+    let ALL_ORGS = [];
+
+    async function fetchOrganizations() {
+      try {
+        var res = await fetch('./data.json', { cache: 'no-store' });
+        if (!res.ok) return;
+        var data = await res.json();
+        var orgs = new Set();
+        data.forEach(function(d) { if (d.Organization) orgs.add(d.Organization); });
+        ALL_ORGS = Array.from(orgs).sort();
+      } catch (e) {
+        console.warn('Could not load organizations from data.json:', e);
+      }
+    }
 
     function buildOrgSelector(userEmail, userOrgs, isAdmin) {
       // Admins always see all — show badge
