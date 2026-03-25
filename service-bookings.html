@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EQARCOM Service Bookings Dashboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #0c3248 0%, #10455F 50%, #1e3a5f 100%);
+      padding: 28px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e4060;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .header-badge {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #6FB1C9;
+    }
+    .header-title { font-size: 22px; font-weight: 800; color: #f1f5f9; letter-spacing: -0.5px; }
+    .header-right { font-size: 12px; color: #4a7a96; }
+
+    /* ── Main ── */
+    .main { max-width: 1280px; margin: 0 auto; padding: 32px 28px 60px; }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 80px 24px; color: #334155;
+    }
+    .empty-icon { font-size: 56px; margin-bottom: 20px; }
+    .empty-title { font-size: 18px; font-weight: 600; color: #475569; margin-bottom: 8px; }
+    .empty-sub { font-size: 13px; color: #334155; }
+
+    /* ── Section header ── */
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin: 40px 0 18px;
+    }
+    .section-header:first-child { margin-top: 0; }
+    .section-header-line {
+      flex: 1; height: 1px; background: #1e293b;
+    }
+    .section-header-text {
+      font-size: 11px; font-weight: 700; color: #4a7a96;
+      text-transform: uppercase; letter-spacing: 1.2px;
+      white-space: nowrap;
+    }
+
+    /* ── KPI Cards ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    .kpi-card {
+      background: #1e293b;
+      border: 1px solid #2d4060;
+      border-radius: 16px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #10455F, #357296);
+      border-radius: 16px 16px 0 0;
+    }
+    .kpi-card:hover {
+      border-color: #357296;
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(16, 69, 95, 0.3);
+    }
+    .kpi-label {
+      font-size: 11px; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+    }
+    .kpi-value {
+      font-size: 26px; font-weight: 800; color: #f1f5f9;
+      letter-spacing: -1px; line-height: 1;
+    }
+    .kpi-value.medium { font-size: 20px; }
+    .kpi-value.small { font-size: 16px; }
+
+    /* ── Chart Cards ── */
+    .card {
+      background: #1e293b;
+      border: 1px solid #2d4060;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card-hint {
+      text-align: center; font-size: 11px; color: #334155;
+      margin-top: 6px; font-style: italic;
+    }
+
+    /* ── Header auth controls ── */
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+    .header-admin-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
+      color: #6FB1C9; text-decoration: none; font-size: 12px; font-weight: 600;
+      transition: background 0.15s;
+    }
+    .header-admin-btn:hover { background: rgba(255,255,255,0.18); }
+    .header-logout-btn {
+      padding: 7px 14px; background: rgba(127,29,29,0.25);
+      border: 1px solid rgba(185,28,28,0.35); border-radius: 8px;
+      color: #fca5a5; font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.15s;
+    }
+    .header-logout-btn:hover { background: rgba(127,29,29,0.4); }
+
+    /* ── Tab navigation ── */
+    .tab-nav {
+      display: flex; gap: 0; margin-bottom: 0;
+      border-bottom: 1px solid #2d4060;
+      background: #0f172a;
+      padding: 0 28px;
+    }
+    .tab-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 14px 24px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      color: #64748b; text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-link:hover { color: #94a3b8; }
+    .tab-link.active {
+      color: #6FB1C9;
+      border-bottom-color: #6FB1C9;
+    }
+
+    /* ── Portrait warning overlay ── */
+    .portrait-warning {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: #0f172a; align-items: center; justify-content: center;
+      flex-direction: column; text-align: center; padding: 40px;
+      font-family: 'Inter', system-ui, sans-serif; color: #e2e8f0;
+    }
+    .portrait-warning svg { width: 64px; height: 64px; margin-bottom: 24px; color: #6FB1C9; }
+    .portrait-warning h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+    .portrait-warning p { font-size: 14px; color: #94a3b8; max-width: 300px; line-height: 1.5; }
+    @media screen and (max-width: 767px) and (orientation: portrait) {
+      .portrait-warning { display: flex !important; }
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* ── Auth gate ── */
+    body:not(.authenticated) .header,
+    body:not(.authenticated) .tab-nav,
+    body:not(.authenticated) .main { visibility: hidden; }
+  </style>
+</head>
+<body>
+
+  <!-- Portrait warning for mobile -->
+  <div class="portrait-warning">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2" transform="rotate(90 12 12)"/>
+      <path d="M12 18h.01"/>
+    </svg>
+    <h2>Please rotate your device</h2>
+    <p>This dashboard is optimised for landscape viewing. Please rotate your device to landscape mode.</p>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <div class="header-badge">EQARCOM</div>
+      <div>
+        <div class="header-title">EQARCOM Usage Dashboards</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="header-right" id="data-timestamp"></span>
+      <a href="admin.html" id="admin-link" class="header-admin-btn" style="display:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users
+      </a>
+      <button id="logout-btn" class="header-logout-btn">Logout</button>
+    </div>
+  </div>
+
+  <!-- Tab navigation -->
+  <div class="tab-nav">
+    <a href="dashboard.html" class="tab-link">Payments</a>
+    <a href="service-bookings.html" class="tab-link active">Service Bookings</a>
+  </div>
+
+  <div class="main">
+
+    <!-- Empty / loading state -->
+    <div id="empty-state">
+      <div class="empty-state">
+        <div class="empty-icon" id="empty-icon">&#x23F3;</div>
+        <div class="empty-title" id="empty-title">Loading data&hellip;</div>
+        <div class="empty-sub" id="empty-sub">Fetching data.json</div>
+      </div>
+    </div>
+
+    <!-- Dashboard content -->
+    <div id="dashboard-content" style="display:none;">
+
+      <!-- KPI Cards -->
+      <div class="section-header">
+        <div class="section-header-text">Key Metrics</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div id="headline-stats" class="kpi-grid"></div>
+
+      <!-- Monthly Service Bookings -->
+      <div class="section-header">
+        <div class="section-header-text">Monthly Service Bookings</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card">
+        <div id="service-booking-paid-amount"></div>
+        <div class="card-hint">Click a bar to drill into daily data</div>
+      </div>
+      <div class="card"><div id="daily-service-bookings"></div></div>
+
+    </div><!-- /#dashboard-content -->
+
+  </div><!-- /.main -->
+
+  <script>
+    // ── State ────────────────────────────────────────────────────
+    let allData = [];
+
+    // ── Brand colours ────────────────────────────────────────────
+    const PALETTE = ['#10455F', '#357296', '#6FB1C9', '#1D5F3C', '#0E2F44', '#99D3E4', '#4a9eca', '#266a8c'];
+
+    // ── Dark Plotly layout base ──────────────────────────────────
+    const BG = '#1e293b';
+    const GRID = '#243248';
+    const TEXT = '#e2e8f0';
+    const MUTED = '#64748b';
+    const FONT_FAMILY = "'Inter', system-ui, sans-serif";
+
+    function baseLayout(overrides) {
+      const base = {
+        paper_bgcolor: BG,
+        plot_bgcolor: BG,
+        font: { color: TEXT, family: FONT_FAMILY, size: 12 },
+        xaxis: { gridcolor: GRID, zerolinecolor: GRID, tickfont: { color: MUTED }, titlefont: { color: MUTED } },
+        yaxis: { gridcolor: GRID, zerolinecolor: GRID, tickfont: { color: MUTED }, titlefont: { color: MUTED } },
+        legend: { bgcolor: 'transparent', font: { color: MUTED } },
+        hoverlabel: { bgcolor: '#0f172a', bordercolor: '#334155', font: { family: FONT_FAMILY, color: TEXT } },
+        margin: { t: 56, l: 60, r: 40, b: 60 }
+      };
+      const out = Object.assign({}, base, overrides);
+      out.xaxis  = Object.assign({}, base.xaxis,  overrides.xaxis  || {});
+      out.yaxis  = Object.assign({}, base.yaxis,  overrides.yaxis  || {});
+      out.margin = Object.assign({}, base.margin,  overrides.margin || {});
+      if (overrides.title && typeof overrides.title === 'string') {
+        out.title = { text: overrides.title, font: { size: 14, color: '#f1f5f9', family: FONT_FAMILY }, x: 0.02 };
+      } else if (overrides.title) {
+        out.title = Object.assign({ x: 0.02, font: { size: 14, color: '#f1f5f9', family: FONT_FAMILY } }, overrides.title);
+      }
+      return out;
+    }
+
+    const CONFIG = { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['sendDataToCloud'] };
+
+    // ── Helpers ──────────────────────────────────────────────────
+    function parsePaid(val) {
+      if (val == null) return NaN;
+      if (typeof val === 'string') val = val.replace(/,/g, '');
+      return parseFloat(val);
+    }
+
+    function sortMonths(months) {
+      return [...months].sort((a, b) => new Date('01-' + a) - new Date('01-' + b));
+    }
+
+    function fmtAED(n) { return `AED ${Math.round(n).toLocaleString()}`; }
+
+    function isSB(d) { return d['SR Number'] != null && String(d['SR Number']).trim() !== ''; }
+
+    // ── Load data ────────────────────────────────────────────────
+    var dataLastUpdated = '';
+    function loadData(json, source) {
+      allData = Array.isArray(json) ? json : [json];
+      var info = `${source} · ${allData.length.toLocaleString()} records`;
+      if (dataLastUpdated) info += ` · Updated ${dataLastUpdated}`;
+      document.getElementById('data-timestamp').textContent = info;
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('dashboard-content').style.display = 'block';
+      renderCharts(allData);
+    }
+
+    // ── Auto-fetch data.json ─────────────────────────────────────
+    (function autoFetch() {
+      fetch('./data.json', { cache: 'no-store' })
+        .then(function(res) {
+          if (!res.ok) throw new Error(res.status);
+          var lastMod = res.headers.get('Last-Modified');
+          if (lastMod) {
+            var d = new Date(lastMod);
+            dataLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+              + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          }
+          return res.json();
+        })
+        .then(function(json) {
+          loadData(json, 'data.json');
+        })
+        .catch(function() {
+          document.getElementById('empty-icon').textContent  = '\uD83D\uDCCA';
+          document.getElementById('empty-title').textContent = 'No data loaded';
+          document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
+        });
+    })();
+
+    // ── HEADLINE STATS ───────────────────────────────────────────
+    function renderHeadlineStats(data) {
+      const currentYear = new Date().getFullYear();
+      const ytdSuffix = String(currentYear).slice(-2);
+
+      const sbData = data.filter(isSB);
+      const totalPaid = sbData.reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
+      const ytdPaid = sbData.filter(d => d['Paid Month'] && d['Paid Month'].endsWith(ytdSuffix))
+                            .reduce((s, d) => { const n = parsePaid(d['Paid Amount']); return isNaN(n) ? s : s + n; }, 0);
+      const totalTransactions = new Set(sbData.map(d => d['Order ID'])).size;
+      const uniqueUsers = new Set(sbData.map(d => (d['Unit Code'] || '') + '|' + (d['Organization'] || ''))).size;
+
+      const metrics = [
+        { label: 'Service Bookings — All-Time',  value: fmtAED(totalPaid) },
+        { label: `Service Bookings — YTD ${currentYear}`, value: fmtAED(ytdPaid) },
+        { label: 'Total Transactions', value: totalTransactions.toLocaleString() },
+        { label: 'Unique Users',       value: uniqueUsers.toLocaleString() },
+      ];
+
+      const container = document.getElementById('headline-stats');
+      container.innerHTML = metrics.map(m => {
+        const len = m.value.length;
+        const sizeClass = len > 15 ? 'small' : len > 10 ? 'medium' : '';
+        return `
+        <div class="kpi-card">
+          <div class="kpi-label">${m.label}</div>
+          <div class="kpi-value ${sizeClass}">${m.value}</div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── SERVICE BOOKINGS MONTHLY (clickable → daily) ─────────────
+    function renderServiceBookingPaidAmountChart(data) {
+      const sb = data.filter(isSB);
+      const monthTotals = {}, monthCounts = {};
+      sb.forEach(item => {
+        const m = item['Paid Month'], n = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(n)) return;
+        monthTotals[m] = (monthTotals[m] || 0) + n;
+        monthCounts[m] = (monthCounts[m] || 0) + 1;
+      });
+      const months = sortMonths(Object.keys(monthTotals));
+
+      Plotly.newPlot('service-booking-paid-amount', [{
+        x: months,
+        y: months.map(m => monthTotals[m]),
+        type: 'bar',
+        marker: { color: '#357296' },
+        customdata: months.map(m => monthCounts[m] || 0),
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<br>%{customdata} records<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: 'Service Booking Payments' }), CONFIG);
+
+      const latest = months[months.length - 1];
+      if (latest) renderDailyServiceBookingChart(data, latest);
+
+      document.getElementById('service-booking-paid-amount').on('plotly_click', function(e) {
+        if (e && e.points && e.points[0]) {
+          renderDailyServiceBookingChart(data, e.points[0].x);
+        }
+      });
+    }
+
+    // ── DAILY SERVICE BOOKINGS ───────────────────────────────────
+    function renderDailyServiceBookingChart(data, month) {
+      const filtered = data.filter(d => isSB(d) && d['Paid Month'] === month);
+      const dailyTotals = {}, dailyCounts = {};
+      filtered.forEach(item => {
+        const pd = item['Paid Date'];
+        if (!pd) return;
+        const [dd, mm, yyyy] = pd.split('-');
+        const iso = `${yyyy}-${mm}-${dd}`;
+        const n = parsePaid(item['Paid Amount']);
+        if (isNaN(n)) return;
+        dailyTotals[iso] = (dailyTotals[iso] || 0) + n;
+        dailyCounts[pd]  = (dailyCounts[pd]  || 0) + 1;
+      });
+      const dates = Object.keys(dailyTotals).sort((a, b) => new Date(a) - new Date(b));
+      const counts = dates.map(d => dailyCounts[d.split('-').reverse().join('-')] || 0);
+
+      Plotly.newPlot('daily-service-bookings', [{
+        x: dates,
+        y: dates.map(d => dailyTotals[d]),
+        type: 'bar',
+        marker: { color: '#6FB1C9' },
+        customdata: counts,
+        hovertemplate: '<b>%{x}</b><br>AED %{y:,.0f}<br>%{customdata} records<extra></extra>',
+        texttemplate: '%{y:,.0f}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 10 }
+      }], baseLayout({ title: `Daily Service Bookings — ${month || ''}` }), CONFIG);
+    }
+
+    // ── RENDER ALL ───────────────────────────────────────────────
+    function renderCharts(data) {
+      const run = (fn, label) => { try { fn(data); } catch(e) { console.warn('[service-bookings]', label, e); } };
+      run(renderHeadlineStats,                  'headline stats');
+      run(renderServiceBookingPaidAmountChart,  'service bookings');
+    }
+  </script>
+
+  <!-- Firebase auth guard -->
+  <script type="module">
+    import { auth, db, ADMIN_EMAIL, onAuthStateChanged, signOut, doc, getDoc, updateDoc } from './firebase-init.js';
+
+    document.getElementById('logout-btn').addEventListener('click', function() {
+      this.disabled = true;
+      signOut(auth).then(function() { window.location.href = 'index.html'; });
+    });
+
+    onAuthStateChanged(auth, async function(user) {
+      if (!user) { window.location.href = 'index.html'; return; }
+      try {
+        var email = user.email.toLowerCase();
+        var userDoc = await getDoc(doc(db, 'users', email));
+        if (!userDoc.exists() || !userDoc.data().enabled) {
+          await signOut(auth);
+          window.location.href = 'index.html';
+          return;
+        }
+        if (userDoc.data().isAdmin) {
+          document.getElementById('admin-link').style.display = 'inline-flex';
+        }
+        document.body.classList.add('authenticated');
+        updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});
+      } catch (e) {
+        console.error('Auth check failed:', e);
+        await signOut(auth);
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>

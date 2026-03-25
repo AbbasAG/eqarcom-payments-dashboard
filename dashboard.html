@@ -201,6 +201,7 @@
 
     /* ── Auth gate — hide content until verified ── */
     body:not(.authenticated) .header,
+    body:not(.authenticated) .tab-nav,
     body:not(.authenticated) .main { visibility: hidden; }
 
     /* ── Header auth controls ── */
@@ -220,6 +221,27 @@
       font-family: inherit; transition: background 0.15s;
     }
     .header-logout-btn:hover { background: rgba(127,29,29,0.4); }
+
+    /* ── Tab navigation ── */
+    .tab-nav {
+      display: flex; gap: 0; margin-bottom: 0;
+      border-bottom: 1px solid #2d4060;
+      background: #0f172a;
+      padding: 0 28px;
+    }
+    .tab-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 14px 24px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      color: #64748b; text-decoration: none;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-link:hover { color: #94a3b8; }
+    .tab-link.active {
+      color: #6FB1C9;
+      border-bottom-color: #6FB1C9;
+    }
 
     /* ── Portrait warning overlay ── */
     .portrait-warning {
@@ -265,6 +287,12 @@
       </a>
       <button id="logout-btn" class="header-logout-btn">Logout</button>
     </div>
+  </div>
+
+  <!-- Tab navigation -->
+  <div class="tab-nav">
+    <a href="dashboard.html" class="tab-link active">Payments</a>
+    <a href="service-bookings.html" class="tab-link">Service Bookings</a>
   </div>
 
   <div class="main">
@@ -340,17 +368,6 @@
         <div class="section-header-line"></div>
       </div>
       <div class="card"><div id="early-rent-renewal"></div></div>
-
-      <!-- Service Bookings -->
-      <div class="section-header">
-        <div class="section-header-text">Service Bookings</div>
-        <div class="section-header-line"></div>
-      </div>
-      <div class="card">
-        <div id="service-booking-paid-amount"></div>
-        <div class="card-hint">Click a bar to drill into daily data</div>
-      </div>
-      <div class="card"><div id="daily-service-bookings"></div></div>
 
       <!-- Payment Mix -->
       <div class="section-header">
@@ -1147,7 +1164,6 @@
       run(renderQuarterlyTotalPaidAmountChart,  'quarterly');
       run(renderRentSubTypeStackedChart,        'rent subtype');
       run(renderEarlyRentRenewalChart,          'early rent renewal');
-      run(renderServiceBookingPaidAmountChart,  'service bookings');
       run(renderPaymentTypeStackedChart,        'payment type');
       run(renderPaidUpfrontStackedChart,        'upfront SD');
       run(renderPaidUpfrontStackedChartRenewal, 'upfront renewal');
