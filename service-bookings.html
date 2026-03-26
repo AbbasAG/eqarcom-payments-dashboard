@@ -120,6 +120,32 @@
       margin-top: 6px; font-style: italic;
     }
 
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: #1e293b;
+      border: 1px solid #2d4060;
+      border-radius: 16px;
+      padding: 20px 28px;
+      margin-bottom: 36px;
+      display: flex;
+      align-items: flex-end;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 8px; }
+    .filter-label {
+      font-size: 11px; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    select.filter-select {
+      background: #0f172a; color: #e2e8f0;
+      border: 1px solid #334155; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px; font-family: inherit;
+      cursor: pointer; outline: none; min-width: 280px;
+      transition: border-color 0.15s;
+    }
+    select.filter-select:hover, select.filter-select:focus { border-color: #6FB1C9; }
+
     /* ── Tables ── */
     .table-title {
       font-size: 14px; font-weight: 700; color: #e2e8f0;
@@ -259,6 +285,16 @@
     <!-- Dashboard content -->
     <div id="dashboard-content" style="display:none;">
 
+      <!-- Property Filter -->
+      <div class="filter-bar">
+        <div class="filter-group">
+          <div class="filter-label">Filter by Property</div>
+          <select id="propertySelect" class="filter-select">
+            <option value="all">All Properties</option>
+          </select>
+        </div>
+      </div>
+
       <!-- KPI Cards -->
       <div class="section-header">
         <div class="section-header-text">Key Metrics</div>
@@ -355,25 +391,65 @@
 
     function isSB(d) { return d['SR Number'] != null && String(d['SR Number']).trim() !== ''; }
 
+    function getFilteredTickets() {
+      const prop = document.getElementById('propertySelect').value;
+      if (prop === 'all') return ticketsData;
+      return ticketsData.filter(t => t['Property'] === prop);
+    }
+
     // ── Load data ────────────────────────────────────────────────
     var dataLastUpdated = '';
+    var rawData = [];
+
     function loadData(json, source) {
       var raw = Array.isArray(json) ? json : [json];
       if (window.userAllowedOrgs && Array.isArray(window.userAllowedOrgs)) {
         userAllowedOrgs = window.userAllowedOrgs;
       }
       if (userAllowedOrgs && Array.isArray(userAllowedOrgs)) {
-        allData = raw.filter(d => userAllowedOrgs.includes(d['Organization']));
+        rawData = raw.filter(d => userAllowedOrgs.includes(d['Organization']));
       } else {
-        allData = raw;
+        rawData = raw;
       }
-      var info = `${source} · ${allData.length.toLocaleString()} records`;
+      var info = `${source} · ${rawData.length.toLocaleString()} records`;
       if (dataLastUpdated) info += ` · Updated ${dataLastUpdated}`;
       document.getElementById('data-timestamp').textContent = info;
       document.getElementById('empty-state').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
+      populatePropertyFilter(rawData);
+      applyPropertyFilter();
+    }
+
+    function populatePropertyFilter(data) {
+      // Collect properties from both payments and tickets
+      const props = new Set();
+      data.filter(isSB).forEach(d => { if (d['Property']) props.add(d['Property']); });
+      ticketsData.forEach(t => { if (t['Property']) props.add(t['Property']); });
+      const sorted = [...props].sort();
+      const sel = document.getElementById('propertySelect');
+      const current = sel.value;
+      sel.innerHTML = '<option value="all">All Properties</option>';
+      sorted.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p; opt.textContent = p;
+        sel.appendChild(opt);
+      });
+      sel.value = current || 'all';
+    }
+
+    function applyPropertyFilter() {
+      const prop = document.getElementById('propertySelect').value;
+      if (prop === 'all') {
+        allData = rawData;
+      } else {
+        allData = rawData.filter(d => d['Property'] === prop);
+      }
+      // Hide sub-category drilldown on filter change
+      document.getElementById('subcategory-drilldown').style.display = 'none';
       renderCharts(allData);
     }
+
+    document.getElementById('propertySelect').addEventListener('change', applyPropertyFilter);
 
     // ── Auto-fetch data.json and tickets.json ─────────────────────
     (function autoFetch() {
@@ -504,7 +580,8 @@
 
     // ── SERVICE BOOKINGS BY CATEGORY (from tickets.json) ────────
     function renderCategoryBreakdownChart(data) {
-      if (!ticketsData || ticketsData.length === 0) {
+      const fTickets = getFilteredTickets();
+      if (!fTickets || fTickets.length === 0) {
         document.getElementById('category-breakdown').innerHTML =
           '<p style="text-align:center;color:#475569;padding:40px;">No tickets data available.</p>';
         return;
@@ -523,7 +600,7 @@
 
       // Group tickets by month and category using payment Paid Month
       const monthCat = {};
-      ticketsData.forEach(t => {
+      fTickets.forEach(t => {
         const ticketNo = String(t['Ticket No'] || '').trim();
         const cat = t['Category'] || 'Unknown';
         const months = srMonths[ticketNo] || [];
@@ -568,7 +645,8 @@
 
     // ── TOTAL BOOKINGS BY CATEGORY (clickable) ──────────────────
     function renderCategoryTotalsChart(data) {
-      if (!ticketsData || ticketsData.length === 0) {
+      const fTickets = getFilteredTickets();
+      if (!fTickets || fTickets.length === 0) {
         document.getElementById('category-totals').innerHTML =
           '<p style="text-align:center;color:#475569;padding:40px;">No tickets data available.</p>';
         return;
@@ -590,7 +668,7 @@
       });
 
       const catCounts = {}, catAmounts = {};
-      ticketsData.forEach(t => {
+      fTickets.forEach(t => {
         const ticketNo = String(t['Ticket No'] || '').trim();
         if (!srSet.has(ticketNo)) return;
         const cat = t['Category'] || 'Unknown';
@@ -648,7 +726,7 @@
 
       // Filter tickets by category and payment match
       const subCats = {};
-      ticketsData.forEach(t => {
+      getFilteredTickets().forEach(t => {
         const ticketNo = String(t['Ticket No'] || '').trim();
         if (!srSet.has(ticketNo)) return;
         if ((t['Category'] || '') !== category) return;
