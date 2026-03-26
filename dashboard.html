@@ -746,7 +746,7 @@
           const v = monthSub[m][sub] || 0, t = monthTotals[m] || 1;
           return [v, t, v / t * 100];
         }),
-        hovertemplate: '<b>%{name}</b><br>AED %{customdata[0]:,.0f}<br>%{customdata[2]:.1f}% of month<extra></extra>',
+        hovertemplate: '<b>' + sub + '</b><br>AED %{customdata[0]:,.0f}<br>%{customdata[2]:.1f}% of month<extra></extra>',
         texttemplate: '%{y:,.0f}',
         textposition: 'inside',
         insidetextanchor: 'middle',
@@ -851,7 +851,7 @@
         name: type,
         type: 'bar',
         marker: { color: PALETTE[i % PALETTE.length] },
-        hovertemplate: '<b>%{name}</b><br>%{y:.1f}%<extra></extra>'
+        hovertemplate: '<b>' + type + '</b><br>%{y:.1f}%<extra></extra>'
       }));
 
       Plotly.newPlot('stacked-payment-type', traces, baseLayout({
