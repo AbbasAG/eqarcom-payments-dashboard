@@ -253,6 +253,13 @@
       </div>
       <div class="card"><div id="daily-service-bookings"></div></div>
 
+      <!-- Service Bookings by Category -->
+      <div class="section-header">
+        <div class="section-header-text">Bookings by Category</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card"><div id="category-breakdown"></div></div>
+
     </div><!-- /#dashboard-content -->
 
   </div><!-- /.main -->
@@ -260,6 +267,7 @@
   <script>
     // ── State ────────────────────────────────────────────────────
     let allData = [];
+    let ticketsData = [];
     let userAllowedOrgs = null;
 
     // ── Brand colours ────────────────────────────────────────────
@@ -332,9 +340,9 @@
       renderCharts(allData);
     }
 
-    // ── Auto-fetch data.json ─────────────────────────────────────
+    // ── Auto-fetch data.json and tickets.json ─────────────────────
     (function autoFetch() {
-      fetch('./data.json', { cache: 'no-store' })
+      var dataPromise = fetch('./data.json', { cache: 'no-store' })
         .then(function(res) {
           if (!res.ok) throw new Error(res.status);
           var lastMod = res.headers.get('Last-Modified');
@@ -344,9 +352,16 @@
               + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
           }
           return res.json();
-        })
-        .then(function(json) {
-          loadData(json, 'data.json');
+        });
+
+      var ticketsPromise = fetch('./tickets.json', { cache: 'no-store' })
+        .then(function(res) { return res.ok ? res.json() : []; })
+        .catch(function() { return []; });
+
+      Promise.all([dataPromise, ticketsPromise])
+        .then(function(results) {
+          ticketsData = results[1];
+          loadData(results[0], 'data.json');
         })
         .catch(function() {
           document.getElementById('empty-icon').textContent  = '\uD83D\uDCCA';
@@ -452,11 +467,65 @@
       }], baseLayout({ title: `Daily Service Bookings — ${month || ''}` }), CONFIG);
     }
 
+    // ── SERVICE BOOKINGS BY CATEGORY (from tickets.json) ────────
+    function renderCategoryBreakdownChart(data) {
+      if (!ticketsData || ticketsData.length === 0) {
+        document.getElementById('category-breakdown').innerHTML =
+          '<p style="text-align:center;color:#475569;padding:40px;">No tickets data available.</p>';
+        return;
+      }
+
+      // Build SR → Paid Month lookup from payments data
+      const srMonths = {};
+      data.filter(isSB).forEach(d => {
+        const sr = String(d['SR Number'] || '').trim();
+        const pm = d['Paid Month'] || '';
+        if (sr && pm) {
+          if (!srMonths[sr]) srMonths[sr] = [];
+          srMonths[sr].push(pm);
+        }
+      });
+
+      // Group tickets by month and category using payment Paid Month
+      const monthCat = {};
+      ticketsData.forEach(t => {
+        const ticketNo = String(t['Ticket No'] || '').trim();
+        const cat = t['Category'] || 'Unknown';
+        const months = srMonths[ticketNo] || [];
+        months.forEach(m => {
+          if (!monthCat[m]) monthCat[m] = {};
+          monthCat[m][cat] = (monthCat[m][cat] || 0) + 1;
+        });
+      });
+
+      const months = sortMonths(Object.keys(monthCat));
+      const categories = [...new Set(months.flatMap(m => Object.keys(monthCat[m])))].sort();
+
+      const traces = categories.map((cat, i) => ({
+        x: months,
+        y: months.map(m => monthCat[m][cat] || 0),
+        type: 'bar',
+        name: cat,
+        marker: { color: PALETTE[i % PALETTE.length] },
+        hovertemplate: '<b>%{name}</b><br>%{y} bookings<extra></extra>',
+        texttemplate: '%{y}',
+        textposition: 'inside',
+        insidetextanchor: 'middle',
+        textfont: { color: 'white', size: 10 }
+      }));
+
+      Plotly.newPlot('category-breakdown', traces, baseLayout({
+        title: 'Service Bookings by Category',
+        barmode: 'stack'
+      }), CONFIG);
+    }
+
     // ── RENDER ALL ───────────────────────────────────────────────
     function renderCharts(data) {
       const run = (fn, label) => { try { fn(data); } catch(e) { console.warn('[service-bookings]', label, e); } };
       run(renderHeadlineStats,                  'headline stats');
       run(renderServiceBookingPaidAmountChart,  'service bookings');
+      run(renderCategoryBreakdownChart,         'category breakdown');
     }
   </script>
 
