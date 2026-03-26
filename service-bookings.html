@@ -120,6 +120,30 @@
       margin-top: 6px; font-style: italic;
     }
 
+    /* ── Tables ── */
+    .table-title {
+      font-size: 14px; font-weight: 700; color: #e2e8f0;
+      margin-bottom: 16px; padding-bottom: 12px;
+      border-bottom: 1px solid #2d4060;
+    }
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th {
+      text-align: left; padding: 10px 14px;
+      background: #0f172a; color: #64748b;
+      font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      border-bottom: 1px solid #2d4060;
+    }
+    .data-table th:not(:first-child) { text-align: right; }
+    .data-table td {
+      padding: 11px 14px; border-bottom: 1px solid #172033;
+      color: #cbd5e1;
+    }
+    .data-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .data-table tbody tr:nth-child(even) td { background: #243248; }
+    .data-table tbody tr:hover td { background: #2d4060; color: #f1f5f9; }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+
     /* ── Header auth controls ── */
     .header-actions { display: flex; align-items: center; gap: 12px; }
     .header-admin-btn {
@@ -259,6 +283,17 @@
         <div class="section-header-line"></div>
       </div>
       <div class="card"><div id="category-breakdown"></div></div>
+
+      <!-- Total Bookings by Category (clickable) -->
+      <div class="section-header">
+        <div class="section-header-text">Total Bookings by Category</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card">
+        <div id="category-totals"></div>
+        <div class="card-hint">Click a category to see sub-category breakdown</div>
+      </div>
+      <div class="card" id="subcategory-drilldown" style="display:none;"></div>
 
     </div><!-- /#dashboard-content -->
 
@@ -531,12 +566,133 @@
       }), CONFIG);
     }
 
+    // ── TOTAL BOOKINGS BY CATEGORY (clickable) ──────────────────
+    function renderCategoryTotalsChart(data) {
+      if (!ticketsData || ticketsData.length === 0) {
+        document.getElementById('category-totals').innerHTML =
+          '<p style="text-align:center;color:#475569;padding:40px;">No tickets data available.</p>';
+        return;
+      }
+
+      // Only tickets that are also on payments JSON
+      const srSet = new Set();
+      data.filter(isSB).forEach(d => {
+        const sr = String(d['SR Number'] || '').trim();
+        if (sr) srSet.add(sr);
+      });
+
+      // Build SR → Paid Amount lookup from payments data
+      const srAmounts = {};
+      data.filter(isSB).forEach(d => {
+        const sr = String(d['SR Number'] || '').trim();
+        const n = parsePaid(d['Paid Amount']);
+        if (sr && !isNaN(n)) srAmounts[sr] = (srAmounts[sr] || 0) + n;
+      });
+
+      const catCounts = {}, catAmounts = {};
+      ticketsData.forEach(t => {
+        const ticketNo = String(t['Ticket No'] || '').trim();
+        if (!srSet.has(ticketNo)) return;
+        const cat = t['Category'] || 'Unknown';
+        catCounts[cat] = (catCounts[cat] || 0) + 1;
+        catAmounts[cat] = (catAmounts[cat] || 0) + (srAmounts[ticketNo] || 0);
+      });
+
+      const categories = Object.keys(catCounts).sort((a, b) => catCounts[b] - catCounts[a]);
+      const counts = categories.map(c => catCounts[c]);
+      const amounts = categories.map(c => catAmounts[c]);
+
+      Plotly.newPlot('category-totals', [{
+        y: categories,
+        x: counts,
+        type: 'bar',
+        orientation: 'h',
+        marker: { color: categories.map((_, i) => PALETTE[i % PALETTE.length]) },
+        customdata: amounts,
+        hovertemplate: '<b>%{y}</b><br>%{x} bookings<br>AED %{customdata:,.0f}<extra></extra>',
+        texttemplate: '%{x}',
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 12 }
+      }], baseLayout({
+        title: 'Total Bookings by Category (Paid via Payments)',
+        yaxis: { automargin: true },
+        xaxis: { title: 'Number of Bookings' },
+        margin: { l: 120 }
+      }), CONFIG);
+
+      // Click handler for drill-down
+      document.getElementById('category-totals').on('plotly_click', function(e) {
+        if (e && e.points && e.points[0]) {
+          renderSubCategoryDrilldown(data, e.points[0].y);
+        }
+      });
+    }
+
+    // ── SUB-CATEGORY DRILL-DOWN TABLE ─────────────────────────────
+    function renderSubCategoryDrilldown(data, category) {
+      const container = document.getElementById('subcategory-drilldown');
+      container.style.display = 'block';
+
+      // SR Numbers from payments JSON
+      const srSet = new Set();
+      const srAmounts = {};
+      data.filter(isSB).forEach(d => {
+        const sr = String(d['SR Number'] || '').trim();
+        const n = parsePaid(d['Paid Amount']);
+        if (sr) {
+          srSet.add(sr);
+          if (!isNaN(n)) srAmounts[sr] = (srAmounts[sr] || 0) + n;
+        }
+      });
+
+      // Filter tickets by category and payment match
+      const subCats = {};
+      ticketsData.forEach(t => {
+        const ticketNo = String(t['Ticket No'] || '').trim();
+        if (!srSet.has(ticketNo)) return;
+        if ((t['Category'] || '') !== category) return;
+        const sub = t['Sub Category'] || 'Unknown';
+        if (!subCats[sub]) subCats[sub] = { count: 0, amount: 0 };
+        subCats[sub].count++;
+        subCats[sub].amount += (srAmounts[ticketNo] || 0);
+      });
+
+      const rows = Object.entries(subCats)
+        .map(([sub, v]) => ({ sub, ...v }))
+        .sort((a, b) => b.count - a.count);
+
+      const totalCount = rows.reduce((s, r) => s + r.count, 0);
+      const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
+
+      container.innerHTML = `
+        <div class="table-title">${category} — Sub-Category Breakdown (${totalCount} bookings · AED ${Math.round(totalAmount).toLocaleString()})</div>
+        <table class="data-table">
+          <thead><tr><th>Sub Category</th><th>Bookings</th><th>Paid Amount (AED)</th></tr></thead>
+          <tbody>${rows.map(r => `
+            <tr>
+              <td>${r.sub}</td>
+              <td>${r.count}</td>
+              <td>${Math.round(r.amount).toLocaleString()}</td>
+            </tr>`).join('')}
+            <tr style="border-top: 2px solid #357296; font-weight: 700;">
+              <td>Total</td>
+              <td>${totalCount}</td>
+              <td>${Math.round(totalAmount).toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>`;
+
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     // ── RENDER ALL ───────────────────────────────────────────────
     function renderCharts(data) {
       const run = (fn, label) => { try { fn(data); } catch(e) { console.warn('[service-bookings]', label, e); } };
       run(renderHeadlineStats,                  'headline stats');
       run(renderServiceBookingPaidAmountChart,  'service bookings');
       run(renderCategoryBreakdownChart,         'category breakdown');
+      run(renderCategoryTotalsChart,            'category totals');
     }
   </script>
 
