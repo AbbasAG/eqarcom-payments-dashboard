@@ -514,9 +514,20 @@
         textfont: { color: 'white', size: 10 }
       }));
 
+      const monthTotals = months.map(m => categories.reduce((s, cat) => s + (monthCat[m][cat] || 0), 0));
+      const annotations = months.map((m, i) => ({
+        x: m,
+        y: monthTotals[i],
+        text: String(monthTotals[i]),
+        showarrow: false,
+        font: { color: TEXT, size: 10 },
+        yshift: 12
+      }));
+
       Plotly.newPlot('category-breakdown', traces, baseLayout({
         title: 'Service Bookings by Category',
-        barmode: 'stack'
+        barmode: 'stack',
+        annotations: annotations
       }), CONFIG);
     }
 
