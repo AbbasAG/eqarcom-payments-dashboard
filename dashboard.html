@@ -1212,14 +1212,15 @@
       const counts  = BUCKETS.map(b => totals[b.label].count);
       const amounts = BUCKETS.map(b => totals[b.label].amount);
       const colors  = BUCKETS.map(b => b.color);
+      const total   = counts.reduce((s, v) => s + v, 0);
 
       const annotations = BUCKETS.map((b, i) => ({
         x: b.label,
         y: counts[i],
         yshift: 10,
-        text: '<b>' + counts[i] + '</b>',
+        text: '<b>' + counts[i] + ' renewals — ' + (total ? Math.round(counts[i] / total * 100) : 0) + '%</b>',
         showarrow: false,
-        font: { size: 13, color: '#e2e8f0', family: FONT_FAMILY },
+        font: { size: 12, color: '#94a3b8', family: FONT_FAMILY },
         yanchor: 'bottom'
       }));
 
