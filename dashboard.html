@@ -1172,15 +1172,17 @@
       const cutoff = new Date(now.getTime() - 365 * 86400000);
 
       const BUCKETS = [
-        { label: '90+ Days Early',  color: '#1D5F3C', test: d => d >= 90 },
+        { label: '90+ Days Early',   color: '#1D5F3C', test: d => d >= 90 },
         { label: '60–90 Days Early', color: '#2d8a5e', test: d => d >= 60 && d < 90 },
         { label: '30–60 Days Early', color: '#6FB1C9', test: d => d >= 30 && d < 60 },
         { label: '0–30 Days Early',  color: '#357296', test: d => d >= 0  && d < 30 },
         { label: 'Late Renewal',     color: '#7f1d1d', test: d => d < 0 }
       ];
 
-      // Collect records
-      const byMonth = {}; // month → { bucket → { count, amount } }
+      // Aggregate across all records in last 365 days
+      const totals = {};
+      BUCKETS.forEach(b => { totals[b.label] = { count: 0, amount: 0 }; });
+
       data.forEach(item => {
         if (item['Payment Type'] !== 'Renewal Fee') return;
         const sub = (item['Payment Sub Type'] || '').toLowerCase();
@@ -1189,67 +1191,50 @@
         const paidDateObj   = parseFlexDate(item['Paid Date']);
         const leaseStartObj = parseFlexDate(item['Lease Start Date']);
         const amt = parsePaid(item['Paid Amount']);
-        const month = item['Paid Month'];
-        if (!paidDateObj || !leaseStartObj || !month || isNaN(amt)) return;
-        if (paidDateObj < cutoff) return; // last 365 days only
+        if (!paidDateObj || !leaseStartObj || isNaN(amt)) return;
+        if (paidDateObj < cutoff) return;
 
         const diffDays = Math.round((leaseStartObj - paidDateObj) / 86400000);
         const bucket = BUCKETS.find(b => b.test(diffDays));
         if (!bucket) return;
-
-        if (!byMonth[month]) byMonth[month] = {};
-        if (!byMonth[month][bucket.label]) byMonth[month][bucket.label] = { count: 0, amount: 0 };
-        byMonth[month][bucket.label].count++;
-        byMonth[month][bucket.label].amount += amt;
+        totals[bucket.label].count++;
+        totals[bucket.label].amount += amt;
       });
 
-      const months = sortMonths(Object.keys(byMonth));
-      if (months.length === 0) {
+      const hasData = BUCKETS.some(b => totals[b.label].count > 0);
+      if (!hasData) {
         document.getElementById('renewal-fee-timing').innerHTML =
           '<p style="text-align:center;color:#475569;padding:40px;">No renewal fee records with Lease Start Date found in the last 365 days.</p>';
         return;
       }
 
-      // Total counts per month (for annotation above bar)
-      const monthTotals = {};
-      months.forEach(m => {
-        monthTotals[m] = { count: 0, amount: 0 };
-        BUCKETS.forEach(b => {
-          const d = byMonth[m][b.label] || { count: 0, amount: 0 };
-          monthTotals[m].count  += d.count;
-          monthTotals[m].amount += d.amount;
-        });
-      });
+      const labels  = BUCKETS.map(b => b.label);
+      const counts  = BUCKETS.map(b => totals[b.label].count);
+      const amounts = BUCKETS.map(b => totals[b.label].amount);
+      const colors  = BUCKETS.map(b => b.color);
 
-      const traces = BUCKETS.map(b => ({
-        x: months,
-        y: months.map(m => (byMonth[m][b.label] || { count: 0 }).count),
-        name: b.label,
-        type: 'bar',
-        marker: { color: b.color },
-        customdata: months.map(m => {
-          const d = byMonth[m][b.label] || { count: 0, amount: 0 };
-          return [d.count, d.amount];
-        }),
-        hovertemplate: '<b>' + b.label + '</b><br>%{customdata[0]} tenants<br>AED %{customdata[1]:,.0f}<extra></extra>'
-      }));
-
-      const annotations = months.map(m => ({
-        x: m,
-        y: monthTotals[m].count,
+      const annotations = BUCKETS.map((b, i) => ({
+        x: b.label,
+        y: counts[i],
         yshift: 10,
-        text: '<b>' + monthTotals[m].count + '</b> tenants  ·  <b>AED ' + Math.round(monthTotals[m].amount).toLocaleString() + '</b>',
+        text: '<b>' + counts[i] + '</b>',
         showarrow: false,
-        font: { size: 11, color: '#94a3b8', family: FONT_FAMILY },
+        font: { size: 13, color: '#e2e8f0', family: FONT_FAMILY },
         yanchor: 'bottom'
       }));
 
-      Plotly.newPlot('renewal-fee-timing', traces, baseLayout({
-        title: 'Renewal Fee Timing — Days Before Lease Start (Last 365 Days)',
-        barmode: 'stack',
+      Plotly.newPlot('renewal-fee-timing', [{
+        x: labels,
+        y: counts,
+        type: 'bar',
+        marker: { color: colors },
+        customdata: BUCKETS.map((b, i) => [counts[i], amounts[i]]),
+        hovertemplate: '<b>%{x}</b><br>%{customdata[0]} tenants<br>AED %{customdata[1]:,.0f}<extra></extra>',
+        showlegend: false
+      }], baseLayout({
+        title: 'Renewal Fee Timing — Last 365 Days',
         annotations: annotations,
-        yaxis: { title: 'Number of Renewals' },
-        legend: { orientation: 'h', y: -0.15 }
+        yaxis: { title: 'Number of Renewals' }
       }), CONFIG);
     }
 
