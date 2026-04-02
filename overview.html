@@ -218,8 +218,8 @@ th.num { text-align: right; }
 
 <!-- Tab navigation -->
 <div class="tab-nav">
-  <a href="dashboard.html" class="tab-link">Payments</a>
-  <a href="service-bookings.html" class="tab-link">Service Bookings</a>
+  <a href="dashboard.html" id="payments-tab" class="tab-link">Payments</a>
+  <a href="service-bookings.html" id="bookings-tab" class="tab-link">Service Bookings</a>
   <a href="overview.html" class="tab-link active">Management Overview</a>
 </div>
 
@@ -593,6 +593,12 @@ render();
 
       if (userData.isAdmin) {
         document.getElementById('admin-link').style.display = 'inline-flex';
+      }
+      // Hide Payments/Service Bookings tabs for overview-only users
+      var noOrgs = Array.isArray(userData.allowedOrgs) && userData.allowedOrgs.length === 0;
+      if (!userData.isAdmin && noOrgs) {
+        document.getElementById('payments-tab').style.display = 'none';
+        document.getElementById('bookings-tab').style.display = 'none';
       }
       document.body.classList.add('authenticated');
       updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});

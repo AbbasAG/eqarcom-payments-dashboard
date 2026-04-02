@@ -1281,6 +1281,12 @@
           return;
         }
         var userData = userDoc.data();
+        // Overview-only users: managementDashboard enabled but no orgs assigned
+        var noOrgs = Array.isArray(userData.allowedOrgs) && userData.allowedOrgs.length === 0;
+        if (!userData.isAdmin && userData.managementDashboard && noOrgs) {
+          window.location.href = 'overview.html';
+          return;
+        }
         if (userData.managementDashboard || userData.isAdmin) {
           document.getElementById('overview-tab').style.display = 'inline-flex';
         }
