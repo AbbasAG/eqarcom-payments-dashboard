@@ -96,7 +96,7 @@ body:not(.authenticated) .main { visibility: hidden; }
 .dashboard { display: flex; flex-direction: column; gap: 24px; }
 
 /* KPI Cards */
-.kpi-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
 .kpi-card { background: #1e293b; border: 1px solid #2d4060; border-radius: 12px; padding: 20px 24px; transition: all .2s; }
 .kpi-card:hover { border-color: #357296; transform: translateY(-1px); }
 .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748b; margin-bottom: 8px; }
@@ -161,6 +161,7 @@ th.num { text-align: right; }
 .subtype-count { font-size: 22px; font-weight: 800; }
 .subtype-label { font-size: 11px; color: #94a3b8; margin-top: 4px; }
 .subtype-rent { font-size: 11px; color: #4ade80; margin-top: 2px; }
+.subtype-area { font-size: 11px; color: #22d3ee; margin-top: 2px; }
 
 /* Scrollable drill */
 .drill-table-wrap { max-height: 350px; overflow-y: auto; }
@@ -169,7 +170,8 @@ th.num { text-align: right; }
 .drill-table-wrap::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 
 /* Responsive */
-@media (max-width: 1200px) { .kpi-row { grid-template-columns: 1fr; } .charts-row { grid-template-columns: 1fr; } }
+@media (max-width: 1200px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .charts-row { grid-template-columns: 1fr; } }
+@media (max-width: 768px) { .kpi-row { grid-template-columns: 1fr; } }
 
 /* Portrait warning */
 .portrait-warning {
@@ -267,6 +269,11 @@ function fmtCurrency(n) {
   return 'AED ' + Number(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
 }
 
+function fmtArea(n) {
+  if (n == null || n === 0) return '-';
+  return Number(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}) + ' sq.ft';
+}
+
 function pct(n, d) {
   if (!d) return '0.0';
   return ((n / d) * 100).toFixed(1);
@@ -355,6 +362,10 @@ function render() {
   const resRent = activeLeases.filter(l => l.usage_type === 'Residential').reduce((s, l) => s + (l.annual_rent || 0), 0);
   const comRent = activeLeases.filter(l => l.usage_type === 'Commercial').reduce((s, l) => s + (l.annual_rent || 0), 0);
 
+  const totalArea = activeLeases.reduce((s, l) => s + (l.built_up_area || 0), 0);
+  const resArea = activeLeases.filter(l => l.usage_type === 'Residential').reduce((s, l) => s + (l.built_up_area || 0), 0);
+  const comArea = activeLeases.filter(l => l.usage_type === 'Commercial').reduce((s, l) => s + (l.built_up_area || 0), 0);
+
   const occupiedUnits = units.filter(u => u.status === 'Occupied').length;
   const occPct = pct(occupiedUnits, totalUnits);
   const resOcc = units.filter(u => u.usage_type === 'Residential');
@@ -380,6 +391,14 @@ function render() {
       </div>
     </div>
     <div class="kpi-card">
+      <div class="kpi-label">Total Area Leased (Active)</div>
+      <div class="kpi-value" style="color:#22d3ee">${fmtArea(totalArea)}</div>
+      <div class="kpi-sub">
+        <div class="kpi-sub-item res"><span>${fmtArea(resArea)}</span> Residential</div>
+        <div class="kpi-sub-item com"><span>${fmtArea(comArea)}</span> Commercial</div>
+      </div>
+    </div>
+    <div class="kpi-card">
       <div class="kpi-label">Overall Occupancy</div>
       <div class="kpi-value" style="color:${occColor(parseFloat(occPct))}">${occPct}%</div>
       <div class="kpi-sub">
@@ -390,13 +409,14 @@ function render() {
   </div>`;
 
   // --- Subtype splits ---
-  function subtypeGrid(arr, color) {
+  function subtypeGrid(arr, color, showArea) {
     const bedMap = {};
     arr.forEach(l => {
       const b = color === '#60a5fa' ? normBedroom(l.bedrooms) : (l.bedrooms || l.unit_type || 'Other');
-      if (!bedMap[b]) bedMap[b] = { count:0, rent:0 };
+      if (!bedMap[b]) bedMap[b] = { count:0, rent:0, area:0 };
       bedMap[b].count++;
       bedMap[b].rent += (l.annual_rent || 0);
+      bedMap[b].area += (l.built_up_area || 0);
     });
     let h = '';
     Object.entries(bedMap).sort((a,b) => b[1].count - a[1].count).forEach(([bed, d]) => {
@@ -404,6 +424,7 @@ function render() {
         <div class="subtype-count" style="color:${color}">${d.count}</div>
         <div class="subtype-label">${bed}</div>
         <div class="subtype-rent">${fmtCurrency(d.rent)}</div>
+        ${showArea ? `<div class="subtype-area">${fmtArea(d.area)}</div>` : ''}
       </div>`;
     });
     return h;
@@ -414,7 +435,7 @@ function render() {
   resLeased.forEach(l => { const ut = l.unit_type || 'Other'; if (!resUTG[ut]) resUTG[ut] = []; resUTG[ut].push(l); });
   html += `<div class="charts-row">`;
   Object.entries(resUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
-    html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#60a5fa;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#60a5fa')}</div></div>`;
+    html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#60a5fa;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#60a5fa', false)}</div></div>`;
   });
   html += `</div>`;
 
@@ -423,7 +444,7 @@ function render() {
   comLeased.forEach(l => { const ut = l.unit_type || 'Other'; if (!comUTG[ut]) comUTG[ut] = []; comUTG[ut].push(l); });
   html += `<div class="charts-row">`;
   Object.entries(comUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
-    html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#fbbf24;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#fbbf24')}</div></div>`;
+    html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#fbbf24;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#fbbf24', true)}</div></div>`;
   });
   html += `</div>`;
 
