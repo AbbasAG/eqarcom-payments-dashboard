@@ -173,13 +173,14 @@
             <th>Email</th>
             <th>Role</th>
             <th>Organizations</th>
+            <th>Mgmt Dashboard</th>
             <th>Registered</th>
             <th>Last Visited</th>
             <th>Enabled</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
-          <tr class="loading-row"><td colspan="7">Loading users&hellip;</td></tr>
+          <tr class="loading-row"><td colspan="8">Loading users&hellip;</td></tr>
         </tbody>
       </table>
       </div>
@@ -260,7 +261,7 @@
         tbody.innerHTML = '';
 
         if (snapshot.empty) {
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="7">No users yet</td></tr>';
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="8">No users yet</td></tr>';
           return;
         }
 
@@ -294,6 +295,11 @@
             '<td>' + escapeHtml(data.email) + '</td>' +
             '<td>' + roleBadge + '</td>' +
             '<td>' + buildOrgSelector(data.email, data.allowedOrgs, data.isAdmin) + '</td>' +
+            '<td><label class="toggle"><input type="checkbox"' +
+            (data.managementDashboard || data.isAdmin ? ' checked' : '') +
+            (data.isAdmin ? ' disabled' : '') +
+            ' data-mgmt-email="' + escapeHtml(data.email) + '"><span class="toggle-slider"></span></label>' +
+            (data.isAdmin ? ' <span class="org-all-badge" style="margin-left:4px">Admin</span>' : '') + '</td>' +
             '<td>' + regBadge + '</td>' +
             '<td style="color:#94a3b8;font-size:12px;">' + lastVisited + '</td>' +
             '<td><label class="toggle"><input type="checkbox"' +
@@ -310,6 +316,19 @@
               await updateDoc(doc(db, 'users', email), { enabled: this.checked });
             } catch (err) {
               console.error('Toggle failed:', err);
+              this.checked = !this.checked;
+            }
+          });
+        });
+
+        // Attach management dashboard toggle handlers
+        tbody.querySelectorAll('input[data-mgmt-email]').forEach(function(cb) {
+          cb.addEventListener('change', async function() {
+            var email = this.getAttribute('data-mgmt-email');
+            try {
+              await updateDoc(doc(db, 'users', email), { managementDashboard: this.checked });
+            } catch (err) {
+              console.error('Mgmt dashboard toggle failed:', err);
               this.checked = !this.checked;
             }
           });
@@ -335,7 +354,7 @@
         });
       } catch (err) {
         console.error('Load users failed:', err);
-        tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Failed to load users</td></tr>';
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Failed to load users</td></tr>';
       }
     }
 

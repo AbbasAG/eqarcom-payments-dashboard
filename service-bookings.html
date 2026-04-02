@@ -269,6 +269,7 @@
   <div class="tab-nav">
     <a href="dashboard.html" class="tab-link">Payments</a>
     <a href="service-bookings.html" class="tab-link active">Service Bookings</a>
+    <a href="overview.html" id="overview-tab" class="tab-link" style="display:none;">Management Overview</a>
   </div>
 
   <div class="main">
@@ -794,6 +795,9 @@
           return;
         }
         var userData = userDoc.data();
+        if (userData.managementDashboard || userData.isAdmin) {
+          document.getElementById('overview-tab').style.display = 'inline-flex';
+        }
         if (userData.isAdmin) {
           document.getElementById('admin-link').style.display = 'inline-flex';
           window.userAllowedOrgs = null;
