@@ -339,6 +339,13 @@
       </div>
       <div class="card" id="top-properties-sb"></div>
 
+      <!-- Slot Heatmap -->
+      <div class="section-header">
+        <div class="section-header-text">Request Slot Heatmap</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card"><div id="slot-heatmap"></div></div>
+
     </div><!-- /#dashboard-content -->
 
   </div><!-- /.main -->
@@ -864,6 +871,101 @@
         </div>`;
     }
 
+    // ── SLOT HEATMAP ───────────────────────────────────────────
+    function renderSlotHeatmap() {
+      const fTickets = getFilteredTickets();
+      if (!fTickets || fTickets.length === 0) {
+        document.getElementById('slot-heatmap').innerHTML =
+          '<p style="text-align:center;color:#475569;padding:40px;">No tickets data available.</p>';
+        return;
+      }
+
+      // Define ordered time slots (30-min intervals)
+      const SLOTS = [
+        '08:30','09:00','09:30','10:00','10:30','11:00',
+        '11:30','12:00','12:30','13:00','13:30','14:00',
+        '14:30','15:00','15:30','16:00'
+      ];
+      const SLOT_LABELS = SLOTS.map(s => {
+        const h = parseInt(s.split(':')[0]);
+        const m = s.split(':')[1];
+        const ampm = h >= 12 ? 'pm' : 'am';
+        const h12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+        return h12 + ':' + m + ampm;
+      });
+
+      // Days of week (Sunday first for UAE work week context)
+      const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+      // Build grid: days (rows) × slots (cols)
+      const grid = DAYS.map(() => SLOTS.map(() => 0));
+
+      fTickets.forEach(t => {
+        const slotDate = t['Slot Date'] || '';
+        const slotTime = t['Slot Time'] || '';
+        if (!slotDate || !slotTime) return;
+
+        // Parse day of week from Slot Date (YYYY-MM-DD)
+        const parts = slotDate.split('-');
+        const dateObj = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+        if (isNaN(dateObj)) return;
+        const dayIdx = dateObj.getDay(); // 0=Sunday
+
+        // Extract start time from slot (e.g. "08:30 - 09:00" → "08:30")
+        const startTime = slotTime.split(' - ')[0].trim();
+        const slotIdx = SLOTS.indexOf(startTime);
+        if (slotIdx === -1) return;
+
+        grid[dayIdx][slotIdx]++;
+      });
+
+      // Annotation text inside cells (only show if count > 0)
+      const annotations = [];
+      DAYS.forEach((day, di) => {
+        SLOTS.forEach((_, si) => {
+          if (grid[di][si] > 0) {
+            annotations.push({
+              x: SLOT_LABELS[si],
+              y: day,
+              text: String(grid[di][si]),
+              showarrow: false,
+              font: { size: 11, color: grid[di][si] > (Math.max(...grid.flat()) * 0.6) ? '#fff' : '#1e293b', family: FONT_FAMILY }
+            });
+          }
+        });
+      });
+
+      Plotly.newPlot('slot-heatmap', [{
+        z: grid,
+        x: SLOT_LABELS,
+        y: DAYS,
+        type: 'heatmap',
+        colorscale: [
+          [0, '#fefce8'],
+          [0.25, '#fde047'],
+          [0.5, '#fb923c'],
+          [0.75, '#ef4444'],
+          [1, '#b91c1c']
+        ],
+        hovertemplate: '<b>%{y}</b> at %{x}<br>%{z} requests<extra></extra>',
+        showscale: true,
+        colorbar: {
+          title: { text: 'Requests', font: { color: MUTED, size: 11 } },
+          tickfont: { color: MUTED },
+          outlinecolor: GRID,
+          bordercolor: GRID
+        },
+        xgap: 2,
+        ygap: 2
+      }], baseLayout({
+        title: 'Request Slot Heatmap — Day of Week × Time of Day',
+        annotations: annotations,
+        xaxis: { side: 'top', tickfont: { size: 11 } },
+        yaxis: { autorange: 'reversed', tickfont: { size: 12 } },
+        margin: { t: 80, l: 100, r: 80, b: 30 }
+      }), CONFIG);
+    }
+
     // ── RENDER ALL ───────────────────────────────────────────────
     function renderCharts(data) {
       const run = (fn, label) => { try { fn(data); } catch(e) { console.warn('[service-bookings]', label, e); } };
@@ -872,6 +974,7 @@
       run(renderCategoryBreakdownChart,         'category breakdown');
       run(renderCategoryTotalsChart,            'category totals');
       run(renderTopPropertiesTable,             'top properties');
+      run(renderSlotHeatmap,                    'slot heatmap');
     }
   </script>
 
