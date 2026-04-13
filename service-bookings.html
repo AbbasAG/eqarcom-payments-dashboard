@@ -344,7 +344,11 @@
         <div class="section-header-text">Request Slot Heatmap</div>
         <div class="section-header-line"></div>
       </div>
-      <div class="card"><div id="slot-heatmap"></div></div>
+      <div class="card">
+        <div id="slot-heatmap"></div>
+        <div class="card-hint">Click a cell to see the tickets for that slot</div>
+      </div>
+      <div class="card" id="slot-drilldown" style="display:none;"></div>
 
     </div><!-- /#dashboard-content -->
 
@@ -964,6 +968,92 @@
         yaxis: { autorange: 'reversed', tickfont: { size: 12 } },
         margin: { t: 80, l: 100, r: 80, b: 30 }
       }), CONFIG);
+
+      // Click handler for drill-down
+      document.getElementById('slot-heatmap').on('plotly_click', function(e) {
+        if (!e || !e.points || !e.points[0]) return;
+        const day = e.points[0].y;      // e.g. "Wednesday"
+        const slotLabel = e.points[0].x; // e.g. "10:00am"
+        const slotIdx = SLOT_LABELS.indexOf(slotLabel);
+        if (slotIdx === -1) return;
+        const slotStart = SLOTS[slotIdx]; // e.g. "10:00"
+        renderSlotDrilldown(fTickets, day, slotStart, slotLabel, DAYS);
+      });
+    }
+
+    // ── SLOT HEATMAP DRILL-DOWN TABLE ────────────────────────────
+    function renderSlotDrilldown(tickets, day, slotStart, slotLabel, DAYS) {
+      const container = document.getElementById('slot-drilldown');
+      container.style.display = 'block';
+
+      const dayIdx = DAYS.indexOf(day);
+
+      const matches = tickets.filter(t => {
+        const slotDate = t['Slot Date'] || '';
+        const slotTime = t['Slot Time'] || '';
+        if (!slotDate || !slotTime) return false;
+
+        const parts = slotDate.split('-');
+        const dateObj = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+        if (isNaN(dateObj) || dateObj.getDay() !== dayIdx) return false;
+
+        const startTime = slotTime.split(' - ')[0].trim();
+        return startTime === slotStart;
+      });
+
+      if (matches.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:#475569;padding:40px;">No tickets for this slot.</p>';
+        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
+      // Sort by Slot Date descending (most recent first)
+      matches.sort((a, b) => (b['Slot Date'] || '').localeCompare(a['Slot Date'] || ''));
+
+      // Format date for display (YYYY-MM-DD → DD-MM-YYYY)
+      const fmtDate = d => {
+        if (!d) return '';
+        const p = d.split('-');
+        return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : d;
+      };
+
+      container.innerHTML = `
+        <div class="table-title">${day} at ${slotLabel} — ${matches.length} Ticket${matches.length !== 1 ? 's' : ''}</div>
+        <div style="overflow-x:auto;">
+        <table class="data-table" style="min-width:900px;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Slot Date</th>
+              <th>Ticket No</th>
+              <th style="text-align:left;">Property</th>
+              <th>Unit No</th>
+              <th style="text-align:left;">Category</th>
+              <th style="text-align:left;">Sub Category</th>
+              <th style="text-align:left;">Tenant Name</th>
+              <th>Status</th>
+              <th>Amount (AED)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${matches.map((t, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${fmtDate(t['Slot Date'])}</td>
+              <td>${t['Ticket No'] || ''}</td>
+              <td style="text-align:left;white-space:nowrap;">${t['Property'] || ''}</td>
+              <td>${t['Unit No'] || ''}</td>
+              <td style="text-align:left;">${t['Category'] || ''}</td>
+              <td style="text-align:left;">${t['Sub Category'] || ''}</td>
+              <td style="text-align:left;white-space:nowrap;">${t['Tenant Name'] || ''}</td>
+              <td>${t['Status'] || ''}</td>
+              <td>${t['Final Amount (AED)'] ? parseFloat(String(t['Final Amount (AED)']).replace(/,/g,'')).toLocaleString() : ''}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        </div>`;
+
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     // ── RENDER ALL ───────────────────────────────────────────────
