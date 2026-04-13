@@ -332,6 +332,13 @@
       </div>
       <div class="card" id="subcategory-drilldown" style="display:none;"></div>
 
+      <!-- Top 20 Properties -->
+      <div class="section-header">
+        <div class="section-header-text">Top 20 Properties by Paid Bookings</div>
+        <div class="section-header-line"></div>
+      </div>
+      <div class="card" id="top-properties-sb"></div>
+
     </div><!-- /#dashboard-content -->
 
   </div><!-- /.main -->
@@ -765,6 +772,98 @@
       container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
+    // ── TOP 20 PROPERTIES TABLE ─────────────────────────────────
+    function renderTopPropertiesTable(data) {
+      const container = document.getElementById('top-properties-sb');
+      const fTickets = getFilteredTickets();
+
+      // SR Numbers from payments that are service bookings
+      const srSet = new Set();
+      const srAmounts = {};
+      const srProperty = {};
+      data.filter(isSB).forEach(d => {
+        const sr = String(d['SR Number'] || '').trim();
+        const n = parsePaid(d['Paid Amount']);
+        const prop = d['Property'] || '';
+        if (sr) {
+          srSet.add(sr);
+          if (!isNaN(n)) srAmounts[sr] = (srAmounts[sr] || 0) + n;
+          if (prop) srProperty[sr] = prop;
+        }
+      });
+
+      // Build per-property: count by category + total amount
+      const propData = {}; // property → { total, amount, cats: { cat → count } }
+      const allCats = new Set();
+
+      fTickets.forEach(t => {
+        const ticketNo = String(t['Ticket No'] || '').trim();
+        if (!srSet.has(ticketNo)) return;
+        const prop = srProperty[ticketNo] || t['Property'] || 'Unknown';
+        const cat = t['Category'] || 'Unknown';
+        allCats.add(cat);
+
+        if (!propData[prop]) propData[prop] = { total: 0, amount: 0, cats: {} };
+        propData[prop].total++;
+        propData[prop].amount += (srAmounts[ticketNo] || 0);
+        propData[prop].cats[cat] = (propData[prop].cats[cat] || 0) + 1;
+      });
+
+      // Sort by total bookings descending, take top 20
+      const sorted = Object.entries(propData)
+        .map(([prop, v]) => ({ prop, ...v }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 20);
+
+      if (sorted.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:#475569;padding:40px;">No data available.</p>';
+        return;
+      }
+
+      // Sort categories by overall frequency (most common first)
+      const catTotals = {};
+      sorted.forEach(r => {
+        Object.entries(r.cats).forEach(([c, n]) => { catTotals[c] = (catTotals[c] || 0) + n; });
+      });
+      const categories = Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]);
+
+      const grandTotal = sorted.reduce((s, r) => s + r.total, 0);
+      const grandAmount = sorted.reduce((s, r) => s + r.amount, 0);
+
+      container.innerHTML = `
+        <div class="table-title">Top 20 Properties by Paid Service Bookings</div>
+        <div style="overflow-x:auto;">
+        <table class="data-table" style="min-width:${600 + categories.length * 90}px;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th style="text-align:left;">Property</th>
+              <th>Total</th>
+              ${categories.map(c => '<th>' + c + '</th>').join('')}
+              <th>Total Collected (AED)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map((r, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td style="text-align:left;white-space:nowrap;">${r.prop}</td>
+              <td><b>${r.total}</b></td>
+              ${categories.map(c => '<td>' + (r.cats[c] || 0) + '</td>').join('')}
+              <td><b>${Math.round(r.amount).toLocaleString()}</b></td>
+            </tr>`).join('')}
+            <tr style="border-top: 2px solid #357296; font-weight: 700;">
+              <td></td>
+              <td style="text-align:left;">Total</td>
+              <td>${grandTotal}</td>
+              ${categories.map(c => '<td>' + (catTotals[c] || 0) + '</td>').join('')}
+              <td>${Math.round(grandAmount).toLocaleString()}</td>
+            </tr>
+          </tbody>
+        </table>
+        </div>`;
+    }
+
     // ── RENDER ALL ───────────────────────────────────────────────
     function renderCharts(data) {
       const run = (fn, label) => { try { fn(data); } catch(e) { console.warn('[service-bookings]', label, e); } };
@@ -772,6 +871,7 @@
       run(renderServiceBookingPaidAmountChart,  'service bookings');
       run(renderCategoryBreakdownChart,         'category breakdown');
       run(renderCategoryTotalsChart,            'category totals');
+      run(renderTopPropertiesTable,             'top properties');
     }
   </script>
 
