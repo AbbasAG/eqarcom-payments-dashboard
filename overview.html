@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Management Overview — EQARCOM Digital Payments</title>
 <script src="eqarat_data.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -255,9 +255,9 @@ th.num { text-align: right; }
       <select id="filterOwner"><option value="">All Owners</option></select>
     </div>
     <button class="reset-btn" onclick="resetFilters()">Reset Filters</button>
-    <button class="pdf-btn" id="pdf-btn" onclick="generatePDF()" title="Select an owner first">
+    <button class="pdf-btn" id="pdf-btn" style="display:none;" title="Download owner report as PDF">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6"/><path d="M9 14l3 3 3-3"/></svg>
-      Download PDF
+      Download Owner Report
     </button>
   </div>
 
@@ -325,10 +325,17 @@ function initFilters() {
   });
 }
 
+function updatePdfButton() {
+  var btn = document.getElementById('pdf-btn');
+  var owner = document.getElementById('filterOwner').value;
+  btn.style.display = owner ? 'inline-flex' : 'none';
+}
+
 function applyFilters() {
   filters.property = document.getElementById('filterProperty').value;
   filters.usage = document.getElementById('filterUsage').value;
   filters.owner = document.getElementById('filterOwner').value;
+  updatePdfButton();
   render();
 }
 
@@ -337,6 +344,7 @@ function resetFilters() {
   document.getElementById('filterUsage').value = '';
   document.getElementById('filterOwner').value = '';
   filters = { property: '', usage: '', owner: '' };
+  updatePdfButton();
   render();
 }
 
@@ -597,6 +605,7 @@ initFilters();
 document.getElementById('filterProperty').addEventListener('change', applyFilters);
 document.getElementById('filterUsage').addEventListener('change', applyFilters);
 document.getElementById('filterOwner').addEventListener('change', applyFilters);
+document.getElementById('pdf-btn').addEventListener('click', generatePDF);
 render();
 
 // ── PDF Generation ──────────────────────────────────────────
