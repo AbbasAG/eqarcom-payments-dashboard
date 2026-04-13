@@ -1030,7 +1030,6 @@
               <th>Unit No</th>
               <th style="text-align:left;">Category</th>
               <th style="text-align:left;">Sub Category</th>
-              <th>Status</th>
               <th>Amount (AED)</th>
             </tr>
           </thead>
@@ -1044,7 +1043,6 @@
               <td>${t['Unit No'] || ''}</td>
               <td style="text-align:left;">${t['Category'] || ''}</td>
               <td style="text-align:left;">${t['Sub Category'] || ''}</td>
-              <td>${t['Status'] || ''}</td>
               <td>${t['Final Amount (AED)'] ? parseFloat(String(t['Final Amount (AED)']).replace(/,/g,'')).toLocaleString() : ''}</td>
             </tr>`).join('')}
           </tbody>
