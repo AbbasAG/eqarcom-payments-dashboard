@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Management Overview — EQARCOM Digital Payments</title>
 <script src="eqarat_data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -91,6 +93,15 @@ body:not(.authenticated) .main { visibility: hidden; }
   font-family: inherit; cursor: pointer; transition: all .2s;
 }
 .reset-btn:hover { border-color: #357296; color: #e2e8f0; }
+.pdf-btn {
+  background: rgba(16,69,95,0.4); border: 1px solid #357296; color: #6FB1C9;
+  padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  font-family: inherit; cursor: pointer; transition: all .2s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.pdf-btn:hover { background: rgba(16,69,95,0.7); color: #fff; }
+.pdf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pdf-btn svg { width: 14px; height: 14px; }
 
 /* ── Dashboard content ── */
 .dashboard { display: flex; flex-direction: column; gap: 24px; }
@@ -244,6 +255,10 @@ th.num { text-align: right; }
       <select id="filterOwner"><option value="">All Owners</option></select>
     </div>
     <button class="reset-btn" onclick="resetFilters()">Reset Filters</button>
+    <button class="pdf-btn" id="pdf-btn" onclick="generatePDF()" title="Select an owner first">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6"/><path d="M9 14l3 3 3-3"/></svg>
+      Download PDF
+    </button>
   </div>
 
   <div class="dashboard" id="dashboard"></div>
@@ -583,6 +598,320 @@ document.getElementById('filterProperty').addEventListener('change', applyFilter
 document.getElementById('filterUsage').addEventListener('change', applyFilters);
 document.getElementById('filterOwner').addEventListener('change', applyFilters);
 render();
+
+// ── PDF Generation ──────────────────────────────────────────
+function generatePDF() {
+  const ownerName = document.getElementById('filterOwner').value;
+  if (!ownerName) {
+    alert('Please select an owner from the filter dropdown first.');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+
+  // Colours
+  const DARK_BG = [15, 23, 42];
+  const CARD_BG = [22, 32, 50];
+  const HEADER_BG = [16, 69, 95];
+  const ACCENT = [53, 114, 150];
+  const ACCENT_LIGHT = [111, 177, 201];
+  const TEXT_W = [241, 245, 249];
+  const TEXT_M = [148, 163, 184];
+  const GRID = [45, 64, 96];
+  const GREEN = [29, 95, 60];
+  const RED = [127, 29, 29];
+  const AMBER = [146, 64, 14];
+
+  // Get data for this owner
+  const leases = EQARAT_DATA.leases.filter(l => l.owner === ownerName);
+  const active = leases.filter(l => l.status === 'Active');
+  const props = [...new Set(active.map(l => l.property))].sort();
+  const ownerUnits = EQARAT_DATA.units.filter(u => props.includes(u.property));
+
+  const totalRent = active.reduce((s, l) => s + (l.annual_rent || 0), 0);
+  const resActive = active.filter(l => l.usage_type === 'Residential');
+  const comActive = active.filter(l => l.usage_type === 'Commercial');
+  const resUnits = ownerUnits.filter(u => u.usage_type === 'Residential');
+  const comUnits = ownerUnits.filter(u => u.usage_type === 'Commercial');
+  const occPct = ownerUnits.length ? (active.length / ownerUnits.length * 100) : 0;
+
+  active.forEach(l => {
+    try { l._days = Math.floor((new Date(l.end_date) - TODAY) / MS_DAY); } catch(e) { l._days = 999; }
+  });
+
+  const expired = active.filter(l => l._days < 0);
+  const exp30 = active.filter(l => l._days >= 0 && l._days <= 30);
+  const exp60 = active.filter(l => l._days > 30 && l._days <= 60);
+  const exp90 = active.filter(l => l._days > 60 && l._days <= 90);
+  const exp120 = active.filter(l => l._days > 90 && l._days <= 120);
+
+  // Nationality
+  const natMap = {};
+  active.forEach(l => { const n = l.nationality || 'Unknown'; natMap[n] = (natMap[n] || 0) + 1; });
+  const topNats = Object.entries(natMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  // Unit mix with avg rent
+  const mixMap = {};
+  active.forEach(l => {
+    const bt = l.usage_type === 'Residential' ? normBedroom(l.bedrooms) : (l.bedrooms || l.unit_type || 'Other');
+    if (!mixMap[bt]) mixMap[bt] = { count: 0, rent: 0 };
+    mixMap[bt].count++;
+    mixMap[bt].rent += (l.annual_rent || 0);
+  });
+
+  const todayStr = TODAY.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // ── Background ──
+  doc.setFillColor(...DARK_BG);
+  doc.rect(0, 0, W, H, 'F');
+
+  // ── Header band ──
+  doc.setFillColor(...HEADER_BG);
+  doc.rect(0, 0, W, 18, 'F');
+  doc.setFillColor(...ACCENT_LIGHT);
+  doc.rect(0, 18, W, 0.8, 'F');
+
+  doc.setTextColor(...TEXT_W);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('Portfolio Overview Report', 10, 12);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...TEXT_M);
+  doc.text('Generated: ' + todayStr, W - 10, 8, { align: 'right' });
+  doc.text('EQARCOM Property Management', W - 10, 13, { align: 'right' });
+
+  // ── Owner name + subtitle ──
+  let y = 26;
+  doc.setTextColor(...TEXT_W);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(ownerName, 10, y);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(...TEXT_M);
+  doc.text(props.length + ' Properties  |  ' + ownerUnits.length + ' Total Units  |  ' + active.length + ' Active Leases', 10, y + 5);
+
+  // ── KPI Cards ──
+  y += 12;
+  const kpiW = (W - 50) / 4;
+  const kpiH = 18;
+  const kpis = [
+    { label: 'OVERALL OCCUPANCY', value: Math.round(occPct) + '%', sub: 'Res: ' + resActive.length + '/' + resUnits.length + '  |  Com: ' + comActive.length + '/' + comUnits.length },
+    { label: 'ANNUAL RENT POOL', value: 'AED ' + Math.round(totalRent).toLocaleString(), sub: 'Res: AED ' + Math.round(resActive.reduce((s,l)=>s+(l.annual_rent||0),0)).toLocaleString() },
+    { label: 'EXPIRING (120 DAYS)', value: String(exp30.length + exp60.length + exp90.length + exp120.length), sub: '30d: ' + exp30.length + '  |  60d: ' + exp60.length + '  |  90d: ' + exp90.length + '  |  120d: ' + exp120.length },
+    { label: 'EXPIRED LEASES', value: String(expired.length), sub: expired.length > 0 ? 'Action required' : 'No expired leases' }
+  ];
+
+  kpis.forEach((kpi, i) => {
+    const x = 10 + i * (kpiW + 10);
+    doc.setFillColor(...CARD_BG);
+    doc.roundedRect(x, y, kpiW, kpiH, 2, 2, 'F');
+    doc.setFillColor(...ACCENT);
+    doc.rect(x, y, kpiW, 1.2, 'F');
+
+    doc.setTextColor(...TEXT_M);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.5);
+    doc.text(kpi.label, x + 4, y + 5.5);
+
+    doc.setTextColor(...TEXT_W);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(kpi.value, x + 4, y + 12);
+
+    doc.setTextColor(...TEXT_M);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.text(kpi.sub, x + 4, y + 16);
+  });
+
+  // ── Occupancy by Property table (left) ──
+  y += kpiH + 8;
+  const leftW = W * 0.55;
+
+  doc.setTextColor(...ACCENT_LIGHT);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.text('OCCUPANCY BY PROPERTY', 10, y);
+  doc.setDrawColor(...GRID);
+  doc.line(65, y - 0.5, leftW, y - 0.5);
+
+  const propTableData = props.map(p => {
+    const pUnits = ownerUnits.filter(u => u.property === p);
+    const pActive = active.filter(l => l.property === p);
+    const pVacant = pUnits.length - pActive.length;
+    const pOcc = pUnits.length ? Math.round(pActive.length / pUnits.length * 100) : 0;
+    const pRent = pActive.reduce((s, l) => s + (l.annual_rent || 0), 0);
+    const avgRent = pActive.length ? Math.round(pRent / pActive.length) : 0;
+    return [p, String(pUnits.length), String(pActive.length), String(pVacant), pOcc + '%', Math.round(pRent).toLocaleString(), Math.round(avgRent).toLocaleString()];
+  });
+  const totalVacant = ownerUnits.length - active.length;
+  const avgRentAll = active.length ? Math.round(totalRent / active.length) : 0;
+  propTableData.push(['Total', String(ownerUnits.length), String(active.length), String(totalVacant), Math.round(occPct) + '%', Math.round(totalRent).toLocaleString(), Math.round(avgRentAll).toLocaleString()]);
+
+  doc.autoTable({
+    startY: y + 2,
+    margin: { left: 10, right: W - leftW },
+    head: [['Property', 'Units', 'Leased', 'Vacant', 'Occ%', 'Annual Rent', 'Avg/Unit']],
+    body: propTableData,
+    styles: { fontSize: 6.5, cellPadding: 2, textColor: TEXT_W, fillColor: CARD_BG, lineColor: GRID, lineWidth: 0.2, font: 'helvetica' },
+    headStyles: { fillColor: HEADER_BG, textColor: TEXT_W, fontStyle: 'bold', fontSize: 6, halign: 'center' },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 40 },
+      1: { halign: 'center', cellWidth: 12 },
+      2: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'center', cellWidth: 12 },
+      4: { halign: 'center', cellWidth: 12 },
+      5: { halign: 'right', cellWidth: 28 },
+      6: { halign: 'right', cellWidth: 22 }
+    },
+    willDrawCell: function(data) {
+      // Bold + different bg for totals row
+      if (data.row.index === propTableData.length - 1) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [26, 45, 66];
+      }
+    },
+    didParseCell: function(data) {
+      if (data.row.index === propTableData.length - 1) {
+        data.cell.styles.fontStyle = 'bold';
+      }
+    }
+  });
+
+  const propTableEnd = doc.lastAutoTable.finalY;
+
+  // ── Unit Mix table (right, top) ──
+  const rightX = leftW + 8;
+  doc.setTextColor(...ACCENT_LIGHT);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.text('UNIT MIX (ACTIVE LEASES)', rightX, y);
+  doc.setDrawColor(...GRID);
+  doc.line(rightX + 55, y - 0.5, W - 10, y - 0.5);
+
+  const mixData = Object.entries(mixMap).sort((a, b) => b[1].count - a[1].count).map(([bt, d]) => {
+    const p = active.length ? Math.round(d.count / active.length * 100) : 0;
+    const avg = d.count ? Math.round(d.rent / d.count) : 0;
+    return [bt, String(d.count), p + '%', Math.round(avg).toLocaleString()];
+  });
+
+  doc.autoTable({
+    startY: y + 2,
+    margin: { left: rightX, right: 10 },
+    head: [['Type', 'Count', '%', 'Avg Rent']],
+    body: mixData,
+    styles: { fontSize: 6.5, cellPadding: 2, textColor: TEXT_W, fillColor: CARD_BG, lineColor: GRID, lineWidth: 0.2, font: 'helvetica' },
+    headStyles: { fillColor: HEADER_BG, textColor: TEXT_W, fontStyle: 'bold', fontSize: 6, halign: 'center' },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 22 },
+      1: { halign: 'center', cellWidth: 14 },
+      2: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'right', cellWidth: 22 }
+    }
+  });
+
+  const mixTableEnd = doc.lastAutoTable.finalY;
+
+  // ── Nationality Split (right, below unit mix) ──
+  const natY = mixTableEnd + 6;
+  doc.setTextColor(...ACCENT_LIGHT);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.text('TENANT NATIONALITY SPLIT', rightX, natY);
+  doc.setDrawColor(...GRID);
+  doc.line(rightX + 55, natY - 0.5, W - 10, natY - 0.5);
+
+  const natData = topNats.map(([n, cnt]) => {
+    const p = active.length ? Math.round(cnt / active.length * 100) : 0;
+    return [n, String(cnt), p + '%'];
+  });
+
+  doc.autoTable({
+    startY: natY + 2,
+    margin: { left: rightX, right: 10 },
+    head: [['Nationality', 'Count', '%']],
+    body: natData,
+    styles: { fontSize: 6.5, cellPadding: 2, textColor: TEXT_W, fillColor: CARD_BG, lineColor: GRID, lineWidth: 0.2, font: 'helvetica' },
+    headStyles: { fillColor: HEADER_BG, textColor: TEXT_W, fontStyle: 'bold', fontSize: 6, halign: 'center' },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 36 },
+      1: { halign: 'center', cellWidth: 14 },
+      2: { halign: 'center', cellWidth: 12 }
+    }
+  });
+
+  // ── Lease Expiry Schedule (below property table) ──
+  const expY = propTableEnd + 6;
+  doc.setTextColor(...ACCENT_LIGHT);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.text('LEASE EXPIRY SCHEDULE', 10, expY);
+  doc.setDrawColor(...GRID);
+  doc.line(55, expY - 0.5, leftW, expY - 0.5);
+
+  const expData = props.map(p => {
+    const pActive = active.filter(l => l.property === p);
+    return [
+      p,
+      String(pActive.filter(l => l._days < 0).length),
+      String(pActive.filter(l => l._days >= 0 && l._days <= 30).length),
+      String(pActive.filter(l => l._days > 30 && l._days <= 60).length),
+      String(pActive.filter(l => l._days > 60 && l._days <= 90).length),
+      String(pActive.filter(l => l._days > 90 && l._days <= 120).length)
+    ];
+  });
+  expData.push(['Total', String(expired.length), String(exp30.length), String(exp60.length), String(exp90.length), String(exp120.length)]);
+
+  doc.autoTable({
+    startY: expY + 2,
+    margin: { left: 10, right: W - leftW },
+    head: [['Property', 'Expired', '30 Days', '60 Days', '90 Days', '120 Days']],
+    body: expData,
+    styles: { fontSize: 6.5, cellPadding: 2, textColor: TEXT_W, fillColor: CARD_BG, lineColor: GRID, lineWidth: 0.2, font: 'helvetica' },
+    headStyles: { fillColor: HEADER_BG, textColor: TEXT_W, fontStyle: 'bold', fontSize: 6, halign: 'center' },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 40 },
+      1: { halign: 'center', cellWidth: 16 },
+      2: { halign: 'center', cellWidth: 16 },
+      3: { halign: 'center', cellWidth: 16 },
+      4: { halign: 'center', cellWidth: 16 },
+      5: { halign: 'center', cellWidth: 16 }
+    },
+    willDrawCell: function(data) {
+      if (data.row.index === expData.length - 1) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [26, 45, 66];
+      }
+      // Colour-code expiry numbers (body only, not header)
+      if (data.section === 'body' && data.column.index === 1) {
+        const v = parseInt(data.cell.raw);
+        if (v > 0) data.cell.styles.textColor = [248, 113, 113]; // red
+      }
+      if (data.section === 'body' && data.column.index === 2) {
+        const v = parseInt(data.cell.raw);
+        if (v > 0) data.cell.styles.textColor = [251, 191, 36]; // amber
+      }
+    }
+  });
+
+  // ── Footer ──
+  doc.setDrawColor(...GRID);
+  doc.line(10, H - 8, W - 10, H - 8);
+  doc.setTextColor(...TEXT_M);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.5);
+  doc.text('CONFIDENTIAL \u2014 Prepared by EQARCOM Property Management', 10, H - 4);
+  doc.text('Report Date: ' + todayStr, W - 10, H - 4, { align: 'right' });
+
+  // Save
+  const safeName = ownerName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+  doc.save('Portfolio_Overview_' + safeName + '.pdf');
+}
 </script>
 
 <!-- Firebase auth guard -->
