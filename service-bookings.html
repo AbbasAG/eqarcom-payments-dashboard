@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>EQARCOM Service Bookings Dashboard</title>
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -145,6 +146,15 @@
       transition: border-color 0.15s;
     }
     select.filter-select:hover, select.filter-select:focus { border-color: #6FB1C9; }
+    .stmt-btn {
+      background: rgba(16,69,95,0.4); border: 1px solid #357296; color: #6FB1C9;
+      padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      font-family: inherit; cursor: pointer; transition: all .2s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .stmt-btn:hover { background: rgba(16,69,95,0.7); color: #fff; }
+    .stmt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .stmt-btn svg { width: 14px; height: 14px; }
 
     /* ── Tables ── */
     .table-title {
@@ -294,6 +304,18 @@
             <option value="all">All Properties</option>
           </select>
         </div>
+        <div class="filter-group" id="stmt-group" style="display:none;">
+          <div class="filter-label">Download Statement</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="stmtMonth" class="filter-select" style="min-width:180px;">
+              <option value="">Select Month</option>
+            </select>
+            <button class="stmt-btn" id="stmtBtn" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M12 11v6"/><path d="M9 14l3 3 3-3"/></svg>
+              XLSX
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- KPI Cards -->
@@ -418,6 +440,8 @@
 
     // ── Load data ────────────────────────────────────────────────
     var ticketsLastUpdated = '';
+    var paymentsLastModified = null; // Date object
+    var ticketsLastModified = null;  // Date object
     var rawData = [];
 
     function loadData(json, source) {
@@ -475,6 +499,8 @@
       var dataPromise = fetch('./data.json', { cache: 'no-store' })
         .then(function(res) {
           if (!res.ok) throw new Error(res.status);
+          var lastMod = res.headers.get('Last-Modified');
+          if (lastMod) paymentsLastModified = new Date(lastMod);
           return res.json();
         });
 
@@ -483,6 +509,7 @@
           if (!res.ok) return [];
           var lastMod = res.headers.get('Last-Modified');
           if (lastMod) {
+            ticketsLastModified = new Date(lastMod);
             var d = new Date(lastMod);
             ticketsLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
               + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -495,6 +522,7 @@
         .then(function(results) {
           ticketsData = results[1];
           loadData(results[0], 'data.json');
+          populateStatementDropdown();
         })
         .catch(function() {
           document.getElementById('empty-icon').textContent  = '\uD83D\uDCCA';
@@ -502,6 +530,165 @@
           document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
         });
     })();
+
+    // ── STATEMENT DOWNLOAD ──────────────────────────────────────
+    function parseFlexDate(str) {
+      if (!str) return null;
+      if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(str)) { const [d,m,y]=str.split('-'); return new Date(+y,+m-1,+d); }
+      if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(str)) { const [y,m,d]=str.split('-'); return new Date(+y,+m-1,+d); }
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) { const [d,m,y]=str.split('/'); return new Date(+y,+m-1,+d); }
+      const d = new Date(str); return isNaN(d) ? null : d;
+    }
+
+    function populateStatementDropdown() {
+      const sel = document.getElementById('stmtMonth');
+      const group = document.getElementById('stmt-group');
+      sel.innerHTML = '<option value="">Select Month</option>';
+
+      // Find earliest and latest Paid Date among service bookings
+      const sbRecords = rawData.filter(isSB);
+      if (sbRecords.length === 0) return;
+
+      let earliest = null, latest = null;
+      sbRecords.forEach(d => {
+        const dt = parseFlexDate(d['Paid Date']);
+        if (!dt) return;
+        if (!earliest || dt < earliest) earliest = dt;
+        if (!latest || dt > latest) latest = dt;
+      });
+      if (!earliest) return;
+
+      const now = new Date();
+      // Last concluded month = previous month relative to today
+      const lastConcludedMonth = new Date(now.getFullYear(), now.getMonth(), 0); // last day of prev month
+      // The first day after the last concluded month
+      const firstOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // Generate months from earliest to last concluded month
+      const months = [];
+      let cursor = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+      while (cursor <= lastConcludedMonth) {
+        const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0); // last day of this month
+        const firstAfterMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+
+        // Check: both timestamps must be AFTER the end of this month
+        const paymentsOk = paymentsLastModified && paymentsLastModified >= firstAfterMonth;
+        const ticketsOk = ticketsLastModified && ticketsLastModified >= firstAfterMonth;
+
+        if (paymentsOk && ticketsOk) {
+          const label = cursor.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+          const value = cursor.getFullYear() + '-' + String(cursor.getMonth() + 1).padStart(2, '0');
+          months.push({ label, value });
+        }
+
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+      }
+
+      if (months.length === 0) return;
+
+      months.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.value;
+        opt.textContent = m.label;
+        sel.appendChild(opt);
+      });
+
+      group.style.display = 'flex';
+    }
+
+    document.getElementById('stmtMonth').addEventListener('change', function() {
+      document.getElementById('stmtBtn').disabled = !this.value;
+    });
+
+    document.getElementById('stmtBtn').addEventListener('click', function() {
+      const monthVal = document.getElementById('stmtMonth').value;
+      if (!monthVal) return;
+      generateStatement(monthVal);
+    });
+
+    function generateStatement(monthVal) {
+      const [yr, mo] = monthVal.split('-').map(Number);
+      const monthStart = new Date(yr, mo - 1, 1);
+      const monthEnd = new Date(yr, mo, 0);
+      const monthLabel = monthStart.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+      // Build ticket lookup: Ticket No → ticket data
+      const ticketMap = {};
+      ticketsData.forEach(t => {
+        const tNo = String(t['Ticket No'] || '').trim();
+        if (tNo) ticketMap[tNo] = t;
+      });
+
+      // Filter service bookings for this month by Paid Date
+      const rows = [];
+      rawData.filter(isSB).forEach(d => {
+        const paidDate = parseFlexDate(d['Paid Date']);
+        if (!paidDate) return;
+        if (paidDate < monthStart || paidDate > monthEnd) return;
+
+        const sr = String(d['SR Number'] || '').trim();
+        const ticket = ticketMap[sr] || {};
+
+        // Format Paid Date as YYYY-MM-DD
+        const paidYMD = paidDate.getFullYear() + '-'
+          + String(paidDate.getMonth() + 1).padStart(2, '0') + '-'
+          + String(paidDate.getDate()).padStart(2, '0');
+
+        // Job Date = Slot Date from tickets
+        const jobDate = ticket['Slot Date'] || '';
+
+        rows.push({
+          'Order ID': d['Order ID'] || '',
+          'Bank Ref': d['Bank Ref'] || '',
+          'SR Number': sr,
+          'Job Date': jobDate,
+          'Paid Date': paidYMD,
+          'Organization': d['Organization'] || '',
+          'Business Unit': d['Business Unit'] || '',
+          'Property': d['Property'] || '',
+          'Unit Code': d['Unit Code'] || '',
+          'Category': ticket['Category'] || '',
+          'Sub Category': ticket['Sub Category'] || '',
+          'Quantity': ticket['Quantity'] || '',
+          'Original Amount': ticket['Original Amount (AED)'] || '',
+          'VAT%': ticket['Vat (%)'] || '',
+          'Discount': ticket['Discount (%)'] || '',
+          'Final Amount': ticket['Final Amount (AED)'] || ''
+        });
+      });
+
+      if (rows.length === 0) {
+        alert('No service booking records found for ' + monthLabel);
+        return;
+      }
+
+      // Generate XLSX
+      const ws = XLSX.utils.json_to_sheet(rows);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 15 }, // Order ID
+        { wch: 10 }, // Bank Ref
+        { wch: 22 }, // SR Number
+        { wch: 12 }, // Job Date
+        { wch: 12 }, // Paid Date
+        { wch: 28 }, // Organization
+        { wch: 28 }, // Business Unit
+        { wch: 28 }, // Property
+        { wch: 16 }, // Unit Code
+        { wch: 18 }, // Category
+        { wch: 22 }, // Sub Category
+        { wch: 10 }, // Quantity
+        { wch: 16 }, // Original Amount
+        { wch: 8 },  // VAT%
+        { wch: 10 }, // Discount
+        { wch: 16 }  // Final Amount
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Service Bookings');
+      XLSX.writeFile(wb, 'Service_Bookings_Statement_' + monthVal + '.xlsx');
+    }
 
     // ── HEADLINE STATS ───────────────────────────────────────────
     function renderHeadlineStats(data) {
