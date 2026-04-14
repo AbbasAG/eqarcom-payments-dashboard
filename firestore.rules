@@ -12,28 +12,23 @@ service cloud.firestore {
     // ── Users collection ──
     match /users/{email} {
 
-      // Anyone authenticated can read their OWN document (for auth guard checks)
-      allow read: if request.auth != null && request.auth.token.email == email;
-
-      // Admin can read ALL user documents (for admin.html user management)
-      allow read: if request.auth != null
-                  && request.auth.token.email == 'abbas.hayat@al-ghurair.com';
-
-      // Only admin can create or modify user documents
-      // Exception: any authenticated user can update ONLY their own lastVisited field
-      allow update: if request.auth != null
-                    && request.auth.token.email == email
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastVisited']);
+      // Allow reads — needed for registration lookup (before user is authenticated)
+      // User docs contain name, email, and permission flags — no secrets
+      allow read: if true;
 
       // Admin has full write access to all user documents
       allow write: if request.auth != null
                    && request.auth.token.email == 'abbas.hayat@al-ghurair.com';
 
-      // Registration: allow new users to create their own document
-      // but they cannot set isAdmin, and permissions use safe defaults
-      allow create: if request.auth != null
+      // Users can update ONLY safe fields on their own document:
+      //   registered, uid  — set during registration
+      //   lastVisited      — set on each login
+      // Cannot change: isAdmin, payments, serviceBookings, managementDashboard,
+      //                allowedOrgs, enabled, name, email
+      allow update: if request.auth != null
                     && request.auth.token.email == email
-                    && request.resource.data.isAdmin == false;
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['registered', 'uid', 'lastVisited']);
     }
 
     // ── Deny everything else by default ──
