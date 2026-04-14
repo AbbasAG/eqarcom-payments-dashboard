@@ -277,7 +277,7 @@
 
   <!-- Tab navigation -->
   <div class="tab-nav">
-    <a href="dashboard.html" class="tab-link">Payments</a>
+    <a href="dashboard.html" id="payments-tab" class="tab-link" style="display:none;">Payments</a>
     <a href="service-bookings.html" class="tab-link active">Service Bookings</a>
     <a href="overview.html" id="overview-tab" class="tab-link" style="display:none;">Management Overview</a>
   </div>
@@ -1274,10 +1274,21 @@
           return;
         }
         var userData = userDoc.data();
-        var noOrgs = Array.isArray(userData.allowedOrgs) && userData.allowedOrgs.length === 0;
-        if (!userData.isAdmin && userData.managementDashboard && noOrgs) {
-          window.location.href = 'overview.html';
+        // Check service bookings dashboard access
+        if (userData.serviceBookings === false && !userData.isAdmin) {
+          if (userData.payments !== false) {
+            window.location.href = 'dashboard.html';
+          } else if (userData.managementDashboard) {
+            window.location.href = 'overview.html';
+          } else {
+            await signOut(auth);
+            window.location.href = 'index.html';
+          }
           return;
+        }
+        // Show tabs the user has access to
+        if (userData.payments !== false || userData.isAdmin) {
+          document.getElementById('payments-tab').style.display = 'inline-flex';
         }
         if (userData.managementDashboard || userData.isAdmin) {
           document.getElementById('overview-tab').style.display = 'inline-flex';
