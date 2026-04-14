@@ -296,8 +296,14 @@
     <!-- Dashboard content -->
     <div id="dashboard-content" style="display:none;">
 
-      <!-- Property Filter -->
+      <!-- Filters -->
       <div class="filter-bar">
+        <div class="filter-group">
+          <div class="filter-label">Filter by Business Unit</div>
+          <select id="buSelect" class="filter-select">
+            <option value="all">All Business Units</option>
+          </select>
+        </div>
         <div class="filter-group">
           <div class="filter-label">Filter by Property</div>
           <select id="propertySelect" class="filter-select">
@@ -433,9 +439,12 @@
     function isSB(d) { return d['SR Number'] != null && String(d['SR Number']).trim() !== ''; }
 
     function getFilteredTickets() {
+      const bu = document.getElementById('buSelect').value;
       const prop = document.getElementById('propertySelect').value;
-      if (prop === 'all') return ticketsData;
-      return ticketsData.filter(t => t['Property'] === prop);
+      var filtered = ticketsData;
+      if (bu !== 'all') filtered = filtered.filter(t => t['Business Unit'] === bu);
+      if (prop !== 'all') filtered = filtered.filter(t => t['Property'] === prop);
+      return filtered;
     }
 
     // ── Load data ────────────────────────────────────────────────
@@ -459,15 +468,41 @@
       document.getElementById('data-timestamp').textContent = info;
       document.getElementById('empty-state').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
-      populatePropertyFilter(rawData);
-      applyPropertyFilter();
+      populateFilters(rawData);
+      applyFilters();
     }
 
-    function populatePropertyFilter(data) {
-      // Collect properties from both payments and tickets
+    function populateFilters(data) {
+      // ── Business Unit dropdown ──
+      const bus = new Set();
+      data.filter(isSB).forEach(d => { if (d['Business Unit']) bus.add(d['Business Unit']); });
+      ticketsData.forEach(t => { if (t['Business Unit']) bus.add(t['Business Unit']); });
+      const buSorted = [...bus].sort();
+      const buSel = document.getElementById('buSelect');
+      const currentBU = buSel.value;
+      buSel.innerHTML = '<option value="all">All Business Units</option>';
+      buSorted.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b; opt.textContent = b;
+        buSel.appendChild(opt);
+      });
+      buSel.value = currentBU || 'all';
+
+      // ── Property dropdown (cascaded from BU) ──
+      rebuildPropertyDropdown();
+    }
+
+    function rebuildPropertyDropdown() {
+      const bu = document.getElementById('buSelect').value;
       const props = new Set();
-      data.filter(isSB).forEach(d => { if (d['Property']) props.add(d['Property']); });
-      ticketsData.forEach(t => { if (t['Property']) props.add(t['Property']); });
+      var payFiltered = rawData.filter(isSB);
+      var tickFiltered = ticketsData;
+      if (bu !== 'all') {
+        payFiltered = payFiltered.filter(d => d['Business Unit'] === bu);
+        tickFiltered = tickFiltered.filter(t => t['Business Unit'] === bu);
+      }
+      payFiltered.forEach(d => { if (d['Property']) props.add(d['Property']); });
+      tickFiltered.forEach(t => { if (t['Property']) props.add(t['Property']); });
       const sorted = [...props].sort();
       const sel = document.getElementById('propertySelect');
       const current = sel.value;
@@ -477,22 +512,27 @@
         opt.value = p; opt.textContent = p;
         sel.appendChild(opt);
       });
-      sel.value = current || 'all';
+      // Keep current selection if it still exists, otherwise reset
+      sel.value = sorted.includes(current) ? current : 'all';
     }
 
-    function applyPropertyFilter() {
+    function applyFilters() {
+      const bu = document.getElementById('buSelect').value;
       const prop = document.getElementById('propertySelect').value;
-      if (prop === 'all') {
-        allData = rawData;
-      } else {
-        allData = rawData.filter(d => d['Property'] === prop);
-      }
+      var filtered = rawData;
+      if (bu !== 'all') filtered = filtered.filter(d => d['Business Unit'] === bu);
+      if (prop !== 'all') filtered = filtered.filter(d => d['Property'] === prop);
+      allData = filtered;
       // Hide sub-category drilldown on filter change
       document.getElementById('subcategory-drilldown').style.display = 'none';
       renderCharts(allData);
     }
 
-    document.getElementById('propertySelect').addEventListener('change', applyPropertyFilter);
+    document.getElementById('buSelect').addEventListener('change', function() {
+      rebuildPropertyDropdown();
+      applyFilters();
+    });
+    document.getElementById('propertySelect').addEventListener('change', applyFilters);
 
     // ── Fetch data (called by auth guard after permission check) ──
     window.fetchBookingsData = function() {
