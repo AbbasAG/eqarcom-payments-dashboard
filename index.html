@@ -84,16 +84,22 @@
       if (!user) return;
       try {
         var ud = await getDoc(doc(db, 'users', user.email.toLowerCase()));
-        if (ud.exists()) {
-          var d = ud.data();
-          var noOrgs = Array.isArray(d.allowedOrgs) && d.allowedOrgs.length === 0;
-          if (!d.isAdmin && d.managementDashboard && noOrgs) {
-            window.location.href = 'overview.html';
-            return;
-          }
+        if (!ud.exists() || !ud.data().enabled) {
+          // Deleted or disabled user — sign out silently, stay on login
+          await signOut(auth);
+          return;
+        }
+        var d = ud.data();
+        if (d.payments !== false) {
+          window.location.href = 'dashboard.html';
+        } else if (d.serviceBookings !== false) {
+          window.location.href = 'service-bookings.html';
+        } else if (d.managementDashboard) {
+          window.location.href = 'overview.html';
+        } else {
+          window.location.href = 'dashboard.html';
         }
       } catch(e) {}
-      window.location.href = 'dashboard.html';
     });
 
     var errorEl = document.getElementById('error-msg');
@@ -110,19 +116,22 @@
 
       try {
         var cred = await signInWithEmailAndPassword(auth, email, password);
-        // Check if user is enabled in Firestore
+        // Check if user exists and is enabled in Firestore
         var userDoc = await getDoc(doc(db, 'users', email));
         if (!userDoc.exists() || !userDoc.data().enabled) {
           await signOut(auth);
-          errorEl.textContent = 'Your account has been disabled. Contact your administrator.';
+          errorEl.textContent = 'Invalid email or password.';
           errorEl.style.display = 'block';
           loginBtn.disabled = false;
           loginBtn.textContent = 'Login';
           return;
         }
         var userData = userDoc.data();
-        var noOrgs = Array.isArray(userData.allowedOrgs) && userData.allowedOrgs.length === 0;
-        if (!userData.isAdmin && userData.managementDashboard && noOrgs) {
+        if (userData.payments !== false) {
+          window.location.href = 'dashboard.html';
+        } else if (userData.serviceBookings !== false) {
+          window.location.href = 'service-bookings.html';
+        } else if (userData.managementDashboard) {
           window.location.href = 'overview.html';
         } else {
           window.location.href = 'dashboard.html';
