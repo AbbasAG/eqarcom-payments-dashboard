@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Management Overview — EQARCOM Digital Payments</title>
-<script src="eqarat_data.js"></script>
+<!-- eqarat_data.js loaded dynamically after auth — see auth guard below -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -603,24 +603,37 @@ window.closeDrill = function(type) {
   el.innerHTML = '';
 };
 
-initFilters();
 document.getElementById('filterProperty').addEventListener('change', applyFilters);
 document.getElementById('filterUsage').addEventListener('change', applyFilters);
 document.getElementById('filterOwner').addEventListener('change', applyFilters);
 document.getElementById('pdf-btn').addEventListener('click', generatePDF);
 
-// Fetch eqarat_data.js Last-Modified timestamp
-fetch('./eqarat_data.js', { method: 'HEAD', cache: 'no-store' })
-  .then(function(res) {
-    var lastMod = res.headers.get('Last-Modified');
-    if (lastMod) {
-      var d = new Date(lastMod);
-      window.eqaratLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-        + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    }
-    render();
-  })
-  .catch(function() { render(); });
+// ── Load overview data (called by auth guard after permission check) ──
+window.loadOverviewData = function() {
+  // Dynamically load eqarat_data.js only after auth confirms access
+  var script = document.createElement('script');
+  script.src = 'eqarat_data.js';
+  script.onload = function() {
+    initFilters();
+    // Fetch Last-Modified timestamp
+    fetch('./eqarat_data.js', { method: 'HEAD', cache: 'no-store' })
+      .then(function(res) {
+        var lastMod = res.headers.get('Last-Modified');
+        if (lastMod) {
+          var d = new Date(lastMod);
+          window.eqaratLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        }
+        render();
+      })
+      .catch(function() { render(); });
+  };
+  script.onerror = function() {
+    document.getElementById('dashboard').innerHTML =
+      '<p style="text-align:center;color:#94a3b8;padding:40px;">Unable to load data. Please contact an administrator.</p>';
+  };
+  document.head.appendChild(script);
+};
 
 // ── PDF Generation ──────────────────────────────────────────
 function generatePDF() {
@@ -975,6 +988,8 @@ function generatePDF() {
         document.getElementById('bookings-tab').style.display = 'inline-flex';
       }
       document.body.classList.add('authenticated');
+      // Load data only after auth + permissions confirmed
+      window.loadOverviewData();
       updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});
     } catch (e) {
       console.error('Auth check failed:', e);

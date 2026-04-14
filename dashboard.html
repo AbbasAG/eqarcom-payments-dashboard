@@ -492,8 +492,8 @@
       renderCharts(allData);
     }
 
-    // ── Auto-fetch data.json on page load ────────────────────────
-    (function autoFetch() {
+    // ── Fetch data.json (called by auth guard after permission check) ──
+    window.fetchDashboardData = function() {
       fetch('./data.json', { cache: 'no-store' })
         .then(function(res) {
           if (!res.ok) throw new Error(res.status);
@@ -509,12 +509,11 @@
           loadData(json, 'data.json');
         })
         .catch(function() {
-          // No data.json found — show upload prompt
           document.getElementById('empty-icon').textContent  = '📊';
           document.getElementById('empty-title').textContent = 'No data loaded';
           document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
         });
-    })();
+    };
 
     // ── Manual file upload (override / fallback) ─────────────────
     document.getElementById('upload').addEventListener('change', function(e) {
@@ -1318,13 +1317,8 @@
           window.userAllowedOrgs = Array.isArray(userData.allowedOrgs) ? userData.allowedOrgs : null;
         }
         document.body.classList.add('authenticated');
-        // If data was already loaded before auth resolved, re-filter
-        if (allData.length > 0) {
-          // Re-fetch to apply org filter
-          fetch('./data.json', { cache: 'no-store' })
-            .then(r => r.ok ? r.json() : null)
-            .then(json => { if (json) loadData(json, 'data.json'); });
-        }
+        // Fetch data only after auth + permissions confirmed
+        window.fetchDashboardData();
         // Record last visited timestamp (fire-and-forget)
         updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});
       } catch (e) {

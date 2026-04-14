@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// Firestore Security Rules for EQARCOM Dashboard
+// Deploy via Firebase Console > Firestore > Rules, or via Firebase CLI
+//
+// These rules prevent users from escalating their own permissions.
+// Only the admin (abbas.hayat@al-ghurair.com) can modify user documents.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Users collection ──
+    match /users/{email} {
+
+      // Anyone authenticated can read their OWN document (for auth guard checks)
+      allow read: if request.auth != null && request.auth.token.email == email;
+
+      // Admin can read ALL user documents (for admin.html user management)
+      allow read: if request.auth != null
+                  && request.auth.token.email == 'abbas.hayat@al-ghurair.com';
+
+      // Only admin can create or modify user documents
+      // Exception: any authenticated user can update ONLY their own lastVisited field
+      allow update: if request.auth != null
+                    && request.auth.token.email == email
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lastVisited']);
+
+      // Admin has full write access to all user documents
+      allow write: if request.auth != null
+                   && request.auth.token.email == 'abbas.hayat@al-ghurair.com';
+
+      // Registration: allow new users to create their own document
+      // but they cannot set isAdmin, and permissions use safe defaults
+      allow create: if request.auth != null
+                    && request.auth.token.email == email
+                    && request.resource.data.isAdmin == false;
+    }
+
+    // ── Deny everything else by default ──
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

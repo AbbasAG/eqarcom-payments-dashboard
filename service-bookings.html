@@ -494,8 +494,8 @@
 
     document.getElementById('propertySelect').addEventListener('change', applyPropertyFilter);
 
-    // ── Auto-fetch data.json and tickets.json ─────────────────────
-    (function autoFetch() {
+    // ── Fetch data (called by auth guard after permission check) ──
+    window.fetchBookingsData = function() {
       var dataPromise = fetch('./data.json', { cache: 'no-store' })
         .then(function(res) {
           if (!res.ok) throw new Error(res.status);
@@ -529,7 +529,7 @@
           document.getElementById('empty-title').textContent = 'No data loaded';
           document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
         });
-    })();
+    };
 
     // ── STATEMENT DOWNLOAD ──────────────────────────────────────
     function parseFlexDate(str) {
@@ -1300,12 +1300,8 @@
           window.userAllowedOrgs = Array.isArray(userData.allowedOrgs) ? userData.allowedOrgs : null;
         }
         document.body.classList.add('authenticated');
-        // Re-filter if data loaded before auth resolved
-        if (allData.length > 0) {
-          fetch('./data.json', { cache: 'no-store' })
-            .then(r => r.ok ? r.json() : null)
-            .then(json => { if (json) loadData(json, 'data.json'); });
-        }
+        // Fetch data only after auth + permissions confirmed
+        window.fetchBookingsData();
         updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});
       } catch (e) {
         console.error('Auth check failed:', e);
