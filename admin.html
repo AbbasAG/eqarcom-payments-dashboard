@@ -16,7 +16,7 @@
     }
     body:not(.authenticated) .admin-container { visibility: hidden; }
 
-    .admin-container { max-width: 1100px; width: 100%; }
+    .admin-container { max-width: 1200px; width: 100%; }
 
     /* ── Header bar ── */
     .admin-header {
@@ -64,7 +64,7 @@
 
     /* ── Users table ── */
     .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-    .users-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    .users-table { width: 100%; border-collapse: collapse; min-width: 1000px; }
     .users-table th {
       text-align: left; font-size: 11px; font-weight: 700; color: #64748b;
       text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 12px;
@@ -87,6 +87,27 @@
     .badge-no { background: rgba(100,116,139,0.2); color: #94a3b8; }
     .badge-admin { background: rgba(16,69,95,0.4); color: #6FB1C9; }
 
+    /* ── Permission pills ── */
+    .pill-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .pill {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 10px; font-weight: 600; white-space: nowrap;
+    }
+    .pill-dash { background: rgba(53,114,150,0.25); color: #6FB1C9; }
+    .pill-org { background: rgba(29,95,60,0.25); color: #86efac; }
+    .pill-admin { background: rgba(16,69,95,0.4); color: #6FB1C9; }
+    .pill-none { background: rgba(100,116,139,0.15); color: #64748b; }
+
+    /* ── Edit button ── */
+    .edit-btn {
+      background: transparent; border: 1px solid #334155; color: #6FB1C9;
+      padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 11px;
+      font-family: inherit; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;
+      transition: all .15s;
+    }
+    .edit-btn:hover { background: rgba(53,114,150,0.2); border-color: #6FB1C9; }
+    .edit-btn svg { width: 12px; height: 12px; }
+
     /* ── Toggle switch ── */
     .toggle { position: relative; display: inline-block; width: 42px; height: 24px; }
     .toggle input { opacity: 0; width: 0; height: 0; }
@@ -104,16 +125,69 @@
 
     .loading-row td { text-align: center; color: #64748b; padding: 24px; }
 
-    /* ── Org selector ── */
-    .org-selector { display: flex; flex-direction: column; gap: 3px; }
-    .org-check { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #cbd5e1; cursor: pointer; white-space: nowrap; line-height: 1.3; }
-    .org-check input[type="checkbox"] {
-      width: 13px; height: 13px; accent-color: #357296; cursor: pointer; flex-shrink: 0;
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
     }
-    .org-all-badge {
-      display: inline-block; padding: 2px 8px; border-radius: 10px;
-      font-size: 10px; font-weight: 600; background: rgba(16,69,95,0.4); color: #6FB1C9;
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #1e293b; border: 1px solid #2d4060; border-radius: 16px;
+      width: 480px; max-width: 90vw; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4);
     }
+    .modal-header {
+      padding: 20px 24px; border-bottom: 1px solid #2d4060;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-header h3 { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+    .modal-close {
+      background: transparent; border: 1px solid #334155; color: #64748b;
+      width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+      font-size: 16px; display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+    }
+    .modal-close:hover { border-color: #ef4444; color: #fca5a5; }
+    .modal-body { padding: 24px; }
+    .modal-section { margin-bottom: 20px; }
+    .modal-section:last-child { margin-bottom: 0; }
+    .modal-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #64748b; margin-bottom: 12px;
+    }
+    .perm-check {
+      display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+      border-radius: 8px; cursor: pointer; transition: background .15s;
+      font-size: 13px; color: #e2e8f0;
+    }
+    .perm-check:hover { background: rgba(53,114,150,0.1); }
+    .perm-check input[type="checkbox"] {
+      width: 16px; height: 16px; accent-color: #357296; cursor: pointer; flex-shrink: 0;
+    }
+    .perm-check-desc { font-size: 11px; color: #64748b; margin-left: 24px; margin-top: 2px; }
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid #2d4060;
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .modal-save {
+      padding: 8px 20px; background: #10455F; color: #e2e8f0;
+      border: none; border-radius: 8px; font-family: inherit; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .modal-save:hover { background: #357296; }
+    .modal-cancel {
+      padding: 8px 20px; background: transparent; color: #94a3b8;
+      border: 1px solid #334155; border-radius: 8px; font-family: inherit;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .modal-cancel:hover { border-color: #94a3b8; color: #e2e8f0; }
+    .modal-status {
+      font-size: 12px; padding: 8px 24px 0; display: none;
+    }
+    .modal-status.saving { color: #6FB1C9; display: block; }
+    .modal-status.saved { color: #86efac; display: block; }
+    .modal-status.error { color: #fca5a5; display: block; }
 
     /* ── Portrait warning ── */
     .portrait-warning {
@@ -140,6 +214,31 @@
     </svg>
     <h2>Please rotate your device</h2>
     <p>This dashboard is optimised for landscape viewing. Please rotate your device to landscape mode.</p>
+  </div>
+
+  <!-- Permissions Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">Edit Permissions</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-section">
+          <div class="modal-section-title">Dashboard Access</div>
+          <div id="modal-dashboards"></div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Organization Access</div>
+          <div id="modal-orgs"></div>
+        </div>
+      </div>
+      <div class="modal-status" id="modal-status"></div>
+      <div class="modal-footer">
+        <button class="modal-cancel" id="modal-cancel">Cancel</button>
+        <button class="modal-save" id="modal-save">Save Changes</button>
+      </div>
+    </div>
   </div>
 
   <div class="admin-container">
@@ -172,15 +271,16 @@
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Dashboards</th>
             <th>Organizations</th>
-            <th>Mgmt Dashboard</th>
             <th>Registered</th>
             <th>Last Visited</th>
             <th>Enabled</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="users-tbody">
-          <tr class="loading-row"><td colspan="8">Loading users&hellip;</td></tr>
+          <tr class="loading-row"><td colspan="9">Loading users&hellip;</td></tr>
         </tbody>
       </table>
       </div>
@@ -224,6 +324,12 @@
     // Dynamically loaded from data.json
     let ALL_ORGS = [];
 
+    const DASHBOARDS = [
+      { key: 'payments', label: 'Payments', desc: 'Payment collections, rent analysis, processing fees' },
+      { key: 'serviceBookings', label: 'Service Bookings', desc: 'Maintenance service bookings, categories, heatmap' },
+      { key: 'managementDashboard', label: 'Management Overview', desc: 'Units, leases, occupancy, expiry schedule' }
+    ];
+
     async function fetchOrganizations() {
       try {
         var res = await fetch('./data.json', { cache: 'no-store' });
@@ -237,21 +343,112 @@
       }
     }
 
-    function buildOrgSelector(userEmail, userOrgs, isAdmin) {
-      // Admins always see all — show badge
-      if (isAdmin) return '<span class="org-all-badge">All (Admin)</span>';
+    // ── Build at-a-glance pills ──
+    function buildDashboardPills(data) {
+      if (data.isAdmin) return '<span class="pill pill-admin">All (Admin)</span>';
+      var pills = [];
+      if (data.payments !== false) pills.push('<span class="pill pill-dash">Payments</span>');
+      if (data.serviceBookings !== false) pills.push('<span class="pill pill-dash">Service Bookings</span>');
+      if (data.managementDashboard) pills.push('<span class="pill pill-dash">Management Overview</span>');
+      return pills.length ? '<div class="pill-row">' + pills.join('') + '</div>' : '<span class="pill pill-none">None</span>';
+    }
 
-      // If not set yet, default to all orgs
-      var currentOrgs = Array.isArray(userOrgs) ? userOrgs : ALL_ORGS.slice();
-
-      return '<div class="org-selector">' + ALL_ORGS.map(function(org) {
-        var checked = currentOrgs.includes(org) ? ' checked' : '';
-        var id = 'org-' + userEmail.replace(/[@.]/g, '_') + '-' + org.replace(/\s/g, '_');
-        return '<label class="org-check">' +
-          '<input type="checkbox" data-org-email="' + escapeHtml(userEmail) + '" data-org="' + escapeHtml(org) + '"' + checked + '>' +
-          org + '</label>';
+    function buildOrgPills(data) {
+      if (data.isAdmin) return '<span class="pill pill-admin">All (Admin)</span>';
+      var orgs = data.allowedOrgs;
+      if (!Array.isArray(orgs) || orgs.length === 0) {
+        // If not set, they have access to all by default (legacy)
+        if (orgs === undefined || orgs === null) return '<span class="pill pill-org">All (Default)</span>';
+        return '<span class="pill pill-none">None</span>';
+      }
+      return '<div class="pill-row">' + orgs.map(function(o) {
+        // Shorten long org names for display
+        var short = o.length > 25 ? o.substring(0, 22) + '...' : o;
+        return '<span class="pill pill-org" title="' + escapeHtml(o) + '">' + escapeHtml(short) + '</span>';
       }).join('') + '</div>';
     }
+
+    // ── Modal ──
+    let modalEmail = '';
+    let modalData = {};
+
+    function openModal(data) {
+      modalEmail = data.email;
+      modalData = data;
+
+      document.getElementById('modal-title').textContent = 'Edit Permissions — ' + (data.name || data.email);
+      document.getElementById('modal-status').className = 'modal-status';
+      document.getElementById('modal-status').textContent = '';
+
+      // Dashboards
+      var dashHtml = '';
+      DASHBOARDS.forEach(function(d) {
+        var checked = '';
+        if (d.key === 'payments') checked = data.payments !== false ? ' checked' : '';
+        else if (d.key === 'serviceBookings') checked = data.serviceBookings !== false ? ' checked' : '';
+        else if (d.key === 'managementDashboard') checked = data.managementDashboard ? ' checked' : '';
+        dashHtml += '<label class="perm-check"><input type="checkbox" data-dash="' + d.key + '"' + checked + '>' + d.label + '</label>';
+        dashHtml += '<div class="perm-check-desc">' + d.desc + '</div>';
+      });
+      document.getElementById('modal-dashboards').innerHTML = dashHtml;
+
+      // Organizations
+      var currentOrgs = Array.isArray(data.allowedOrgs) ? data.allowedOrgs : ALL_ORGS.slice();
+      var orgHtml = '';
+      ALL_ORGS.forEach(function(org) {
+        var checked = currentOrgs.includes(org) ? ' checked' : '';
+        orgHtml += '<label class="perm-check"><input type="checkbox" data-org="' + escapeHtml(org) + '"' + checked + '>' + escapeHtml(org) + '</label>';
+      });
+      document.getElementById('modal-orgs').innerHTML = orgHtml;
+
+      document.getElementById('modal-overlay').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modal-overlay').classList.remove('active');
+      modalEmail = '';
+      modalData = {};
+    }
+
+    document.getElementById('modal-close').addEventListener('click', closeModal);
+    document.getElementById('modal-cancel').addEventListener('click', closeModal);
+    document.getElementById('modal-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    document.getElementById('modal-save').addEventListener('click', async function() {
+      if (!modalEmail) return;
+      var status = document.getElementById('modal-status');
+      status.className = 'modal-status saving';
+      status.textContent = 'Saving...';
+
+      // Gather dashboard selections
+      var dashData = {};
+      document.querySelectorAll('#modal-dashboards input[data-dash]').forEach(function(cb) {
+        dashData[cb.getAttribute('data-dash')] = cb.checked;
+      });
+
+      // Gather org selections
+      var selectedOrgs = [];
+      document.querySelectorAll('#modal-orgs input[data-org]').forEach(function(cb) {
+        if (cb.checked) selectedOrgs.push(cb.getAttribute('data-org'));
+      });
+
+      try {
+        await updateDoc(doc(db, 'users', modalEmail), {
+          payments: dashData.payments || false,
+          serviceBookings: dashData.serviceBookings || false,
+          managementDashboard: dashData.managementDashboard || false,
+          allowedOrgs: selectedOrgs
+        });
+        status.className = 'modal-status saved';
+        status.textContent = 'Permissions saved successfully.';
+        setTimeout(function() { closeModal(); loadUsers(); }, 800);
+      } catch (err) {
+        status.className = 'modal-status error';
+        status.textContent = 'Failed to save: ' + err.message;
+      }
+    });
 
     // ── Load and render users table ──
     async function loadUsers() {
@@ -261,7 +458,7 @@
         tbody.innerHTML = '';
 
         if (snapshot.empty) {
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="8">No users yet</td></tr>';
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="9">No users yet</td></tr>';
           return;
         }
 
@@ -290,21 +487,22 @@
               + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
           }
 
+          var editBtn = data.isAdmin
+            ? ''
+            : '<button class="edit-btn" data-edit-email="' + escapeHtml(data.email) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Edit</button>';
+
           tr.innerHTML =
             '<td>' + escapeHtml(data.name) + '</td>' +
             '<td>' + escapeHtml(data.email) + '</td>' +
             '<td>' + roleBadge + '</td>' +
-            '<td>' + buildOrgSelector(data.email, data.allowedOrgs, data.isAdmin) + '</td>' +
-            '<td><label class="toggle"><input type="checkbox"' +
-            (data.managementDashboard || data.isAdmin ? ' checked' : '') +
-            (data.isAdmin ? ' disabled' : '') +
-            ' data-mgmt-email="' + escapeHtml(data.email) + '"><span class="toggle-slider"></span></label>' +
-            (data.isAdmin ? ' <span class="org-all-badge" style="margin-left:4px">Admin</span>' : '') + '</td>' +
+            '<td>' + buildDashboardPills(data) + '</td>' +
+            '<td>' + buildOrgPills(data) + '</td>' +
             '<td>' + regBadge + '</td>' +
             '<td style="color:#94a3b8;font-size:12px;">' + lastVisited + '</td>' +
             '<td><label class="toggle"><input type="checkbox"' +
             (data.enabled ? ' checked' : '') +
-            ' data-email="' + escapeHtml(data.email) + '"><span class="toggle-slider"></span></label></td>';
+            ' data-email="' + escapeHtml(data.email) + '"><span class="toggle-slider"></span></label></td>' +
+            '<td>' + editBtn + '</td>';
           tbody.appendChild(tr);
         });
 
@@ -321,40 +519,17 @@
           });
         });
 
-        // Attach management dashboard toggle handlers
-        tbody.querySelectorAll('input[data-mgmt-email]').forEach(function(cb) {
-          cb.addEventListener('change', async function() {
-            var email = this.getAttribute('data-mgmt-email');
-            try {
-              await updateDoc(doc(db, 'users', email), { managementDashboard: this.checked });
-            } catch (err) {
-              console.error('Mgmt dashboard toggle failed:', err);
-              this.checked = !this.checked;
-            }
-          });
-        });
-
-        // Attach org checkbox handlers
-        tbody.querySelectorAll('input[data-org-email]').forEach(function(cb) {
-          cb.addEventListener('change', async function() {
-            var email = this.getAttribute('data-org-email');
-            // Gather all org checkboxes for this user
-            var checkboxes = tbody.querySelectorAll('input[data-org-email="' + email + '"]');
-            var selectedOrgs = [];
-            checkboxes.forEach(function(c) {
-              if (c.checked) selectedOrgs.push(c.getAttribute('data-org'));
-            });
-            try {
-              await updateDoc(doc(db, 'users', email), { allowedOrgs: selectedOrgs });
-            } catch (err) {
-              console.error('Org update failed:', err);
-              this.checked = !this.checked;
-            }
+        // Attach edit button handlers
+        tbody.querySelectorAll('button[data-edit-email]').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var email = this.getAttribute('data-edit-email');
+            var userData = rows.find(function(r) { return r.email === email; });
+            if (userData) openModal(userData);
           });
         });
       } catch (err) {
         console.error('Load users failed:', err);
-        tbody.innerHTML = '<tr class="loading-row"><td colspan="8">Failed to load users</td></tr>';
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="9">Failed to load users</td></tr>';
       }
     }
 
@@ -391,13 +566,17 @@
           email: email,
           enabled: true,
           isAdmin: false,
-          registered: false
+          registered: false,
+          payments: true,
+          serviceBookings: true,
+          managementDashboard: false,
+          allowedOrgs: ALL_ORGS.slice()
         });
 
         nameEl.value = '';
         emailEl.value = '';
         formMsg.className = 'form-msg success';
-        formMsg.textContent = 'User "' + name + '" added. They can now register at the registration page.';
+        formMsg.textContent = 'User "' + name + '" added with Payments & Service Bookings access. Click Edit to customise permissions.';
         formMsg.style.display = 'block';
         addBtn.disabled = false;
         addBtn.textContent = 'Add User';
