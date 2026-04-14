@@ -168,8 +168,9 @@
     .perm-check-desc { font-size: 11px; color: #64748b; margin-left: 24px; margin-top: 2px; }
     .modal-footer {
       padding: 16px 24px; border-top: 1px solid #2d4060;
-      display: flex; justify-content: flex-end; gap: 8px;
+      display: flex; justify-content: space-between; align-items: center;
     }
+    .modal-footer-right { display: flex; gap: 8px; }
     .modal-save {
       padding: 8px 20px; background: #10455F; color: #e2e8f0;
       border: none; border-radius: 8px; font-family: inherit; font-size: 13px;
@@ -182,6 +183,14 @@
       font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
     }
     .modal-cancel:hover { border-color: #94a3b8; color: #e2e8f0; }
+    .modal-delete {
+      padding: 8px 20px; background: transparent; color: #ef4444;
+      border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; font-family: inherit;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .modal-delete:hover { background: rgba(239,68,68,0.15); border-color: #ef4444; }
+    .modal-delete svg { width: 13px; height: 13px; }
     .modal-status {
       font-size: 12px; padding: 8px 24px 0; display: none;
     }
@@ -235,8 +244,14 @@
       </div>
       <div class="modal-status" id="modal-status"></div>
       <div class="modal-footer">
-        <button class="modal-cancel" id="modal-cancel">Cancel</button>
-        <button class="modal-save" id="modal-save">Save Changes</button>
+        <button class="modal-delete" id="modal-delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          Delete User
+        </button>
+        <div class="modal-footer-right">
+          <button class="modal-cancel" id="modal-cancel">Cancel</button>
+          <button class="modal-save" id="modal-save">Save Changes</button>
+        </div>
       </div>
     </div>
   </div>
@@ -291,7 +306,7 @@
     import {
       auth, db, ADMIN_EMAIL,
       onAuthStateChanged, signOut,
-      doc, getDoc, setDoc, getDocs, updateDoc, collection
+      doc, getDoc, setDoc, getDocs, updateDoc, deleteDoc, collection
     } from './firebase-init.js';
 
     // ── Auth guard: admin only ──
@@ -447,6 +462,31 @@
       } catch (err) {
         status.className = 'modal-status error';
         status.textContent = 'Failed to save: ' + err.message;
+      }
+    });
+
+    // ── Delete user ──
+    document.getElementById('modal-delete').addEventListener('click', async function() {
+      if (!modalEmail) return;
+      var userName = modalData.name || modalEmail;
+      var confirmed = confirm(
+        'Permanently delete user "' + userName + '" (' + modalEmail + ')?\n\n' +
+        'This action cannot be undone. The user will lose all access and their Firestore record will be removed.'
+      );
+      if (!confirmed) return;
+
+      var status = document.getElementById('modal-status');
+      status.className = 'modal-status saving';
+      status.textContent = 'Deleting user...';
+
+      try {
+        await deleteDoc(doc(db, 'users', modalEmail));
+        status.className = 'modal-status saved';
+        status.textContent = 'User deleted.';
+        setTimeout(function() { closeModal(); loadUsers(); }, 800);
+      } catch (err) {
+        status.className = 'modal-status error';
+        status.textContent = 'Failed to delete: ' + err.message;
       }
     });
 
