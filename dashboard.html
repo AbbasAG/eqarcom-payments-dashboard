@@ -482,8 +482,8 @@
       } else {
         allData = raw;
       }
-      var info = `${source} · ${allData.length.toLocaleString()} records`;
-      if (dataLastUpdated) info += ` · Updated ${dataLastUpdated}`;
+      var info = `${allData.length.toLocaleString()} payment records`;
+      if (dataLastUpdated) info += ` · Payments data updated ${dataLastUpdated}`;
       document.getElementById('data-timestamp').textContent = info;
       populateOrgFilter(allData);
       selectedRentMonth = null;

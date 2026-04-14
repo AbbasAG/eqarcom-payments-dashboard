@@ -417,7 +417,7 @@
     }
 
     // ── Load data ────────────────────────────────────────────────
-    var dataLastUpdated = '';
+    var ticketsLastUpdated = '';
     var rawData = [];
 
     function loadData(json, source) {
@@ -430,8 +430,8 @@
       } else {
         rawData = raw;
       }
-      var info = `${source} · ${rawData.length.toLocaleString()} records`;
-      if (dataLastUpdated) info += ` · Updated ${dataLastUpdated}`;
+      var info = `${rawData.length.toLocaleString()} payment records`;
+      if (ticketsLastUpdated) info += ` · Tickets data updated ${ticketsLastUpdated}`;
       document.getElementById('data-timestamp').textContent = info;
       document.getElementById('empty-state').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
@@ -475,17 +475,20 @@
       var dataPromise = fetch('./data.json', { cache: 'no-store' })
         .then(function(res) {
           if (!res.ok) throw new Error(res.status);
-          var lastMod = res.headers.get('Last-Modified');
-          if (lastMod) {
-            var d = new Date(lastMod);
-            dataLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-              + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          }
           return res.json();
         });
 
       var ticketsPromise = fetch('./tickets.json', { cache: 'no-store' })
-        .then(function(res) { return res.ok ? res.json() : []; })
+        .then(function(res) {
+          if (!res.ok) return [];
+          var lastMod = res.headers.get('Last-Modified');
+          if (lastMod) {
+            var d = new Date(lastMod);
+            ticketsLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+              + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          }
+          return res.json();
+        })
         .catch(function() { return []; });
 
       Promise.all([dataPromise, ticketsPromise])

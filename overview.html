@@ -561,7 +561,9 @@ function render() {
   html += `</div></div>`;
 
   db.innerHTML = html;
-  document.getElementById('data-timestamp').textContent = 'Data as of ' + TODAY.toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
+  if (window.eqaratLastUpdated) {
+    document.getElementById('data-timestamp').textContent = 'Units & Leases data updated ' + window.eqaratLastUpdated;
+  }
 }
 
 // Drill-down
@@ -606,7 +608,19 @@ document.getElementById('filterProperty').addEventListener('change', applyFilter
 document.getElementById('filterUsage').addEventListener('change', applyFilters);
 document.getElementById('filterOwner').addEventListener('change', applyFilters);
 document.getElementById('pdf-btn').addEventListener('click', generatePDF);
-render();
+
+// Fetch eqarat_data.js Last-Modified timestamp
+fetch('./eqarat_data.js', { method: 'HEAD', cache: 'no-store' })
+  .then(function(res) {
+    var lastMod = res.headers.get('Last-Modified');
+    if (lastMod) {
+      var d = new Date(lastMod);
+      window.eqaratLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    }
+    render();
+  })
+  .catch(function() { render(); });
 
 // ── PDF Generation ──────────────────────────────────────────
 function generatePDF() {
