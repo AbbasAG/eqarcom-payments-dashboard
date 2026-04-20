@@ -1139,9 +1139,9 @@
         const slotTime = t['Slot Time'] || '';
         if (!slotDate || !slotTime) return;
 
-        // Parse day of week from Slot Date (YYYY-MM-DD)
+        // Parse day of week from Slot Date (DD-MM-YYYY)
         const parts = slotDate.split('-');
-        const dateObj = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+        const dateObj = new Date(+parts[2], +parts[1] - 1, +parts[0]);
         if (isNaN(dateObj)) return;
         const dayIdx = dateObj.getDay(); // 0=Sunday
 
@@ -1224,7 +1224,7 @@
         if (!slotDate || !slotTime) return false;
 
         const parts = slotDate.split('-');
-        const dateObj = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+        const dateObj = new Date(+parts[2], +parts[1] - 1, +parts[0]);
         if (isNaN(dateObj) || dateObj.getDay() !== dayIdx) return false;
 
         const startTime = slotTime.split(' - ')[0].trim();
@@ -1237,8 +1237,9 @@
         return;
       }
 
-      // Sort by Slot Date descending (most recent first)
-      matches.sort((a, b) => (b['Slot Date'] || '').localeCompare(a['Slot Date'] || ''));
+      // Sort by Slot Date descending (most recent first) — dates are DD-MM-YYYY
+      const toSortable = d => { if (!d) return ''; const p = d.split('-'); return p.length===3 ? `${p[2]}-${p[1]}-${p[0]}` : d; };
+      matches.sort((a, b) => toSortable(b['Slot Date']).localeCompare(toSortable(a['Slot Date'])));
 
       // Format date for display (YYYY-MM-DD → DD-MM-YYYY)
       const fmtDate = d => {
