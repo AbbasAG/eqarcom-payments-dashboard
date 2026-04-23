@@ -1,0 +1,15 @@
+# Never commit data extracts. They live in Firebase Cloud Storage only.
+# See SECURITY_RUNBOOK.md for the upload workflow.
+data.json
+tickets.json
+eqarat_data.js
+*.backup.json
+
+# Local / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Firebase CLI working files
+.firebase/
+firebase-debug.log

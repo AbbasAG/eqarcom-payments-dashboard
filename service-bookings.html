@@ -534,41 +534,40 @@
     });
     document.getElementById('propertySelect').addEventListener('change', applyFilters);
 
-    // ── Fetch data (called by auth guard after permission check) ──
+    // ── Fetch data from Cloud Storage (auth-gated) ──
+    // Called by the auth guard once permissions have been verified.
     window.fetchBookingsData = function() {
-      var dataPromise = fetch('./data.json', { cache: 'no-store' })
-        .then(function(res) {
-          if (!res.ok) throw new Error(res.status);
-          var lastMod = res.headers.get('Last-Modified');
-          if (lastMod) paymentsLastModified = new Date(lastMod);
-          return res.json();
-        });
+      import('./firebase-init.js').then(function(mod) {
+        var dataPromise = mod.fetchPrivateJson('private/data.json')
+          .then(function(result) {
+            if (result.updated) paymentsLastModified = result.updated;
+            return result.json;
+          });
 
-      var ticketsPromise = fetch('./tickets.json', { cache: 'no-store' })
-        .then(function(res) {
-          if (!res.ok) return [];
-          var lastMod = res.headers.get('Last-Modified');
-          if (lastMod) {
-            ticketsLastModified = new Date(lastMod);
-            var d = new Date(lastMod);
-            ticketsLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-              + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          }
-          return res.json();
-        })
-        .catch(function() { return []; });
+        var ticketsPromise = mod.fetchPrivateJson('private/tickets.json')
+          .then(function(result) {
+            if (result.updated) {
+              ticketsLastModified = result.updated;
+              ticketsLastUpdated = result.updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                + ' ' + result.updated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            }
+            return result.json;
+          })
+          .catch(function() { return []; });
 
-      Promise.all([dataPromise, ticketsPromise])
-        .then(function(results) {
-          ticketsData = results[1];
-          loadData(results[0], 'data.json');
-          populateStatementDropdown();
-        })
-        .catch(function() {
-          document.getElementById('empty-icon').textContent  = '\uD83D\uDCCA';
-          document.getElementById('empty-title').textContent = 'No data loaded';
-          document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
-        });
+        return Promise.all([dataPromise, ticketsPromise]);
+      })
+      .then(function(results) {
+        ticketsData = results[1];
+        loadData(results[0], 'data.json');
+        populateStatementDropdown();
+      })
+      .catch(function(err) {
+        console.error('Data fetch failed:', err);
+        document.getElementById('empty-icon').textContent  = '\uD83D\uDCCA';
+        document.getElementById('empty-title').textContent = 'No data loaded';
+        document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
+      });
     };
 
     // ── STATEMENT DOWNLOAD ──────────────────────────────────────

@@ -608,31 +608,39 @@ document.getElementById('filterUsage').addEventListener('change', applyFilters);
 document.getElementById('filterOwner').addEventListener('change', applyFilters);
 document.getElementById('pdf-btn').addEventListener('click', generatePDF);
 
-// ── Load overview data (called by auth guard after permission check) ──
+// ── Load overview data from Cloud Storage (auth-gated) ──
+// Fetches eqarat_data.js as text, wraps in a Blob URL, then loads as a module-less
+// <script> tag. This preserves the existing global-assignment format (const EQARAT_DATA = {...})
+// without needing to eval() user-influenced content directly.
 window.loadOverviewData = function() {
-  // Dynamically load eqarat_data.js only after auth confirms access
-  var script = document.createElement('script');
-  script.src = 'eqarat_data.js';
-  script.onload = function() {
-    initFilters();
-    // Fetch Last-Modified timestamp
-    fetch('./eqarat_data.js', { method: 'HEAD', cache: 'no-store' })
-      .then(function(res) {
-        var lastMod = res.headers.get('Last-Modified');
-        if (lastMod) {
-          var d = new Date(lastMod);
-          window.eqaratLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-            + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        }
-        render();
-      })
-      .catch(function() { render(); });
-  };
-  script.onerror = function() {
+  import('./firebase-init.js').then(function(mod) {
+    return mod.fetchPrivateText('private/eqarat_data.js');
+  })
+  .then(function(result) {
+    if (result.updated) {
+      window.eqaratLastUpdated = result.updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        + ' ' + result.updated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    }
+    var blob = new Blob([result.text], { type: 'application/javascript' });
+    var url = URL.createObjectURL(blob);
+    var script = document.createElement('script');
+    script.src = url;
+    script.onload = function() {
+      URL.revokeObjectURL(url);
+      initFilters();
+      render();
+    };
+    script.onerror = function() {
+      URL.revokeObjectURL(url);
+      throw new Error('Failed to execute eqarat_data.js');
+    };
+    document.head.appendChild(script);
+  })
+  .catch(function(err) {
+    console.error('Overview data fetch failed:', err);
     document.getElementById('dashboard').innerHTML =
       '<p style="text-align:center;color:#94a3b8;padding:40px;">Unable to load data. Please contact an administrator.</p>';
-  };
-  document.head.appendChild(script);
+  });
 };
 
 // ── PDF Generation ──────────────────────────────────────────

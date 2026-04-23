@@ -492,27 +492,25 @@
       renderCharts(allData);
     }
 
-    // ── Fetch data.json (called by auth guard after permission check) ──
+    // ── Fetch data from Cloud Storage (auth-gated) ──
+    // Called by the auth guard once permissions have been verified.
     window.fetchDashboardData = function() {
-      fetch('./data.json', { cache: 'no-store' })
-        .then(function(res) {
-          if (!res.ok) throw new Error(res.status);
-          var lastMod = res.headers.get('Last-Modified');
-          if (lastMod) {
-            var d = new Date(lastMod);
-            dataLastUpdated = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-              + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          }
-          return res.json();
-        })
-        .then(function(json) {
-          loadData(json, 'data.json');
-        })
-        .catch(function() {
-          document.getElementById('empty-icon').textContent  = '📊';
-          document.getElementById('empty-title').textContent = 'No data loaded';
-          document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
-        });
+      import('./firebase-init.js').then(function(mod) {
+        return mod.fetchPrivateJson('private/data.json');
+      })
+      .then(function(result) {
+        if (result.updated) {
+          dataLastUpdated = result.updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+            + ' ' + result.updated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        }
+        loadData(result.json, 'data.json');
+      })
+      .catch(function(err) {
+        console.error('Data fetch failed:', err);
+        document.getElementById('empty-icon').textContent  = '📊';
+        document.getElementById('empty-title').textContent = 'No data loaded';
+        document.getElementById('empty-sub').textContent   = 'No data is currently available. Please contact an administrator.';
+      });
     };
 
     // ── Manual file upload (override / fallback) ─────────────────
