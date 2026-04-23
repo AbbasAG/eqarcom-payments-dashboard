@@ -4,8 +4,13 @@ import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWith
   from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, getDocs, collection, updateDoc, deleteDoc }
   from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js';
+import { getStorage, ref as storageRef, getBlob, uploadBytes, getMetadata }
+  from 'https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js';
 
-// ── Firebase config — replace with your project's values ──
+// ── Firebase config ──
+// Note: API keys for Firebase web apps are public by design. Access control
+// is enforced by Firestore + Storage security rules and (recommended)
+// API-key HTTP-referrer restrictions in Google Cloud Console.
 const firebaseConfig = {
   apiKey: "AIzaSyBtjQE76mHJGVCIDqlkVuVXq_01ogM7lqw",
   authDomain: "eqarcom-dashboard.firebaseapp.com",
@@ -18,11 +23,32 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 const ADMIN_EMAIL = 'abbas.hayat@al-ghurair.com';
 
+// ── Secure data fetch helpers ─────────────────────────────────
+// All sensitive extracts live under /private/ in Cloud Storage.
+// Reads require an authenticated user with the right permission flag
+// (enforced in storage.rules). Returns { text, updated } where `updated`
+// is a Date taken from the object's metadata.
+async function fetchPrivateText(path) {
+  const r = storageRef(storage, path);
+  const [blob, meta] = await Promise.all([getBlob(r), getMetadata(r)]);
+  return {
+    text: await blob.text(),
+    updated: meta.updated ? new Date(meta.updated) : null
+  };
+}
+async function fetchPrivateJson(path) {
+  const { text, updated } = await fetchPrivateText(path);
+  return { json: JSON.parse(text), updated };
+}
+
 export {
-  auth, db, ADMIN_EMAIL,
+  auth, db, storage, ADMIN_EMAIL,
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
-  doc, getDoc, setDoc, getDocs, collection, updateDoc, deleteDoc
+  doc, getDoc, setDoc, getDocs, collection, updateDoc, deleteDoc,
+  storageRef, getBlob, uploadBytes, getMetadata,
+  fetchPrivateText, fetchPrivateJson
 };

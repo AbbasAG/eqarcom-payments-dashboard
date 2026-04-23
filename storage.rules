@@ -1,0 +1,58 @@
+rules_version = '2';
+
+// Firebase Cloud Storage Security Rules — EQARCOM Dashboard
+// Deploy with:  firebase deploy --only storage
+//
+// All sensitive data extracts live under /private/.
+// Reads are gated by the same permission flags as the dashboards
+// (mirrors users/{email} doc in Firestore). Writes are admin-only.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ─── Helpers ────────────────────────────────────────────────
+    function userDoc() {
+      return firestore.get(
+        /databases/(default)/documents/users/$(request.auth.token.email)
+      ).data;
+    }
+    // Email verification is not enforced by the registration flow,
+    // and users are admin-provisioned, so a valid auth token is sufficient.
+    function isSignedIn()  { return request.auth != null && request.auth.token.email != null; }
+    function isEnabled()   { return isSignedIn() && userDoc().enabled == true; }
+    function isAdmin()     { return isEnabled() && userDoc().isAdmin == true; }
+    function hasPayments() { return isEnabled() && (isAdmin() || userDoc().payments != false); }
+    function hasBookings() { return isEnabled() && (isAdmin() || userDoc().serviceBookings != false); }
+    function hasOverview() { return isEnabled() && (isAdmin() || userDoc().managementDashboard == true); }
+
+    // Reasonable upload-size cap to prevent storage abuse (50 MB)
+    function isReasonableSize() { return request.resource.size < 50 * 1024 * 1024; }
+
+    // ─── Sensitive data extracts ────────────────────────────────
+    // data.json   — payments + service-booking records (used by Payments + Service Bookings dashboards)
+    match /private/data.json {
+      allow read:  if hasPayments() || hasBookings();
+      allow write: if isAdmin() && isReasonableSize()
+                   && request.resource.contentType.matches('application/json.*');
+    }
+
+    // tickets.json — maintenance ticket records (used by Service Bookings dashboard)
+    match /private/tickets.json {
+      allow read:  if hasBookings();
+      allow write: if isAdmin() && isReasonableSize()
+                   && request.resource.contentType.matches('application/json.*');
+    }
+
+    // eqarat_data.js — units / leases extract (used by Management Overview)
+    // Stored as text; loaded via fetch + Blob URL on the client.
+    match /private/eqarat_data.js {
+      allow read:  if hasOverview();
+      allow write: if isAdmin() && isReasonableSize();
+    }
+
+    // ─── Default deny ───────────────────────────────────────────
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

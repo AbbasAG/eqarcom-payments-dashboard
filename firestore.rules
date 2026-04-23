@@ -1,10 +1,7 @@
 rules_version = '2';
 
 // Firestore Security Rules for EQARCOM Dashboard
-// Deploy via Firebase Console > Firestore > Rules, or via Firebase CLI
-//
-// These rules prevent users from escalating their own permissions.
-// Only the admin (abbas.hayat@al-ghurair.com) can modify user documents.
+// Deploy with:  firebase deploy --only firestore:rules
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -12,11 +9,15 @@ service cloud.firestore {
     // ── Users collection ──
     match /users/{email} {
 
-      // Allow reads — needed for registration lookup (before user is authenticated)
-      // User docs contain name, email, and permission flags — no secrets
-      allow read: if true;
+      // Single-doc reads (`get`) are permitted for the registration
+      // lookup flow, which must run before the user can authenticate.
+      // Collection enumeration (`list`) is restricted to admins to
+      // prevent user roster harvesting.
+      allow get:  if true;
+      allow list: if request.auth != null
+                  && request.auth.token.email == 'abbas.hayat@al-ghurair.com';
 
-      // Admin has full write access to all user documents
+      // Admin has full write access to all user documents.
       allow write: if request.auth != null
                    && request.auth.token.email == 'abbas.hayat@al-ghurair.com';
 
