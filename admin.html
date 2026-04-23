@@ -283,34 +283,37 @@
           </tr>
         </thead>
         <tbody id="uploads-tbody">
-          <tr data-path="private/data.json" data-accept="application/json,.json">
-            <td><strong>data.json</strong></td>
+          <tr data-path="private/data.json" data-kind="payments">
+            <td><strong>data.json</strong><div style="font-size:11px;color:#64748b;margin-top:2px;">From Payments .xlsx</div></td>
             <td><span class="pill pill-dash">Payments</span> <span class="pill pill-dash">Service Bookings</span></td>
             <td class="up-current">—</td>
             <td class="up-updated">—</td>
             <td>
-              <input type="file" class="up-input" accept="application/json,.json" hidden>
+              <input type="file" class="up-input" accept=".xlsx" hidden>
               <button type="button" class="edit-btn up-btn">Choose &amp; Upload</button>
             </td>
           </tr>
-          <tr data-path="private/tickets.json" data-accept="application/json,.json">
-            <td><strong>tickets.json</strong></td>
+          <tr data-path="private/tickets.json" data-kind="tickets">
+            <td><strong>tickets.json</strong><div style="font-size:11px;color:#64748b;margin-top:2px;">From Tickets .xlsx (Paid=Yes only)</div></td>
             <td><span class="pill pill-dash">Service Bookings</span></td>
             <td class="up-current">—</td>
             <td class="up-updated">—</td>
             <td>
-              <input type="file" class="up-input" accept="application/json,.json" hidden>
+              <input type="file" class="up-input" accept=".xlsx" hidden>
               <button type="button" class="edit-btn up-btn">Choose &amp; Upload</button>
             </td>
           </tr>
-          <tr data-path="private/eqarat_data.js" data-accept="application/javascript,.js">
-            <td><strong>eqarat_data.js</strong></td>
+          <tr data-path="private/eqarat_data.js" data-kind="eqarat">
+            <td><strong>eqarat_data.js</strong><div style="font-size:11px;color:#64748b;margin-top:2px;">From Units + Leases .xlsx</div></td>
             <td><span class="pill pill-dash">Management Overview</span></td>
             <td class="up-current">—</td>
             <td class="up-updated">—</td>
             <td>
-              <input type="file" class="up-input" accept="application/javascript,.js" hidden>
-              <button type="button" class="edit-btn up-btn">Choose &amp; Upload</button>
+              <input type="file" class="up-input-units" accept=".xlsx" hidden>
+              <input type="file" class="up-input-leases" accept=".xlsx" hidden>
+              <button type="button" class="edit-btn up-btn-units">Choose Units.xlsx</button>
+              <button type="button" class="edit-btn up-btn-leases" style="margin-left:6px;">Choose Leases.xlsx</button>
+              <div class="up-eqarat-status" style="font-size:11px;color:#64748b;margin-top:6px;"></div>
             </td>
           </tr>
         </tbody>
@@ -363,6 +366,7 @@
       storageRef, uploadBytes, getMetadata,
       fetchPrivateJson
     } from './firebase-init.js';
+    import { convertPayments, convertTickets, convertEqarat } from './convert.js';
 
     // ── Auth guard: admin only ──
     onAuthStateChanged(auth, async function(user) {
@@ -376,9 +380,9 @@
           return;
         }
         document.body.classList.add('authenticated');
-        await fetchOrganizations();
-        loadUsers();
         initUploads();
+        loadUsers();
+        fetchOrganizations();
       } catch (e) {
         console.error('Admin auth failed:', e);
         window.location.href = 'dashboard.html';
@@ -389,15 +393,50 @@
     function initUploads() {
       refreshUploadMetadata();
       document.querySelectorAll('#uploads-tbody tr').forEach(function(row) {
-        var btn   = row.querySelector('.up-btn');
-        var input = row.querySelector('.up-input');
-        btn.addEventListener('click', function() { input.click(); });
-        input.addEventListener('change', function(e) {
-          var file = e.target.files[0];
-          if (file) handleUpload(row, file);
-          input.value = ''; // reset so same file can be re-picked
-        });
+        var kind = row.dataset.kind;
+        if (kind === 'eqarat') {
+          var btnU   = row.querySelector('.up-btn-units');
+          var btnL   = row.querySelector('.up-btn-leases');
+          var inU    = row.querySelector('.up-input-units');
+          var inL    = row.querySelector('.up-input-leases');
+          var status = row.querySelector('.up-eqarat-status');
+          btnU.addEventListener('click', function() { inU.click(); });
+          btnL.addEventListener('click', function() { inL.click(); });
+          inU.addEventListener('change', function() {
+            if (inU.files[0]) {
+              row._unitsFile = inU.files[0];
+              btnU.textContent = '✓ ' + inU.files[0].name;
+            }
+            maybeRunEqarat(row, status);
+          });
+          inL.addEventListener('change', function() {
+            if (inL.files[0]) {
+              row._leasesFile = inL.files[0];
+              btnL.textContent = '✓ ' + inL.files[0].name;
+            }
+            maybeRunEqarat(row, status);
+          });
+        } else {
+          var btn   = row.querySelector('.up-btn');
+          var input = row.querySelector('.up-input');
+          btn.addEventListener('click', function() { input.click(); });
+          input.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) handleUpload(row, file);
+            input.value = '';
+          });
+        }
       });
+    }
+
+    function maybeRunEqarat(row, status) {
+      if (row._unitsFile && row._leasesFile && !row._eqaratBusy) {
+        row._eqaratBusy = true;
+        status.textContent = 'Converting Units + Leases…';
+        handleUpload(row, null).finally(function() {
+          row._eqaratBusy = false;
+        });
+      }
     }
 
     async function refreshUploadMetadata() {
@@ -419,43 +458,63 @@
     }
 
     async function handleUpload(row, file) {
-      var path    = row.dataset.path;
-      var isJson  = path.endsWith('.json');
-      var msg     = document.getElementById('upload-msg');
-      var btn     = row.querySelector('.up-btn');
-      var originalBtnText = btn.textContent;
+      var path   = row.dataset.path;
+      var kind   = row.dataset.kind;
+      var msg    = document.getElementById('upload-msg');
+      var eqStatus = row.querySelector('.up-eqarat-status');
+      var btns   = row.querySelectorAll('button');
+      var originalLabels = [];
+      btns.forEach(function(b, i) { originalLabels[i] = b.textContent; b.disabled = true; });
 
       msg.className = 'form-msg'; msg.style.display = 'none';
 
-      // Client-side validation
-      if (file.size > 50 * 1024 * 1024) {
-        return showUploadMsg('error', 'File exceeds 50 MB limit.');
-      }
-      if (isJson) {
-        try {
-          var text = await file.text();
-          JSON.parse(text); // validate JSON shape
-        } catch (err) {
-          return showUploadMsg('error', file.name + ' is not valid JSON: ' + err.message);
-        }
+      function setBtn(text) {
+        if (kind === 'eqarat') { if (eqStatus) eqStatus.textContent = text; }
+        else { btns[0].textContent = text; }
       }
 
-      btn.disabled = true;
-      btn.textContent = 'Uploading…';
       try {
-        var contentType = isJson ? 'application/json' : 'application/javascript';
-        await uploadBytes(storageRef(storage, path), file, {
+        if (file && file.size > 50 * 1024 * 1024) {
+          throw new Error('File exceeds 50 MB limit.');
+        }
+
+        setBtn('Converting…');
+        var result;
+        var contentType;
+        if (kind === 'payments') {
+          result = await convertPayments(file);
+          contentType = 'application/json';
+        } else if (kind === 'tickets') {
+          result = await convertTickets(file);
+          contentType = 'application/json';
+        } else if (kind === 'eqarat') {
+          result = await convertEqarat(row._unitsFile, row._leasesFile);
+          contentType = 'application/javascript';
+        } else {
+          throw new Error('Unknown upload kind: ' + kind);
+        }
+
+        setBtn('Uploading ' + (result.count || 0) + ' records…');
+        await uploadBytes(storageRef(storage, path), result.blob, {
           contentType: contentType,
           cacheControl: 'no-store'
         });
-        showUploadMsg('success', path + ' updated successfully.');
+
+        showUploadMsg('success', path + ' updated successfully (' + result.count + ' records).');
+        if (kind === 'eqarat') {
+          row._unitsFile = null;
+          row._leasesFile = null;
+          row.querySelector('.up-input-units').value = '';
+          row.querySelector('.up-input-leases').value = '';
+          if (eqStatus) eqStatus.textContent = '';
+        }
         await refreshUploadMetadata();
       } catch (err) {
         console.error('Upload failed:', err);
         showUploadMsg('error', 'Upload failed: ' + (err.message || err.code || 'unknown error'));
+        if (kind === 'eqarat' && eqStatus) eqStatus.textContent = '';
       } finally {
-        btn.disabled = false;
-        btn.textContent = originalBtnText;
+        btns.forEach(function(b, i) { b.disabled = false; b.textContent = originalLabels[i]; });
       }
     }
 
