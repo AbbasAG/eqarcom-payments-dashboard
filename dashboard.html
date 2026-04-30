@@ -381,6 +381,10 @@
         <div class="card"><div id="stacked-paidupfront"></div></div>
         <div class="card"><div id="stacked-paidupfront-renewal"></div></div>
       </div>
+      <div class="grid-2">
+        <div class="card"><div id="security-deposit-monthly"></div></div>
+        <div class="card"><div id="renewal-fee-monthly"></div></div>
+      </div>
 
       <!-- Processing Fees (admin only) -->
       <div id="processing-fees-section" style="display:none;">
@@ -900,6 +904,74 @@
     }
 
     // ── PROCESSING FEE (actual) ──────────────────────────────────
+    // ── SECURITY DEPOSITS — MONTHLY ──────────────────────────────
+    function renderSecurityDepositChart(data) {
+      const byMonth = {};
+      data.forEach(item => {
+        if (item['Payment Type'] !== 'Security Deposit') return;
+        const m = item['Paid Month'];
+        const amt = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(amt)) return;
+        if (!byMonth[m]) byMonth[m] = { count: 0, total: 0 };
+        byMonth[m].count++;
+        byMonth[m].total += amt;
+      });
+      const months = sortMonths(Object.keys(byMonth));
+      if (months.length === 0) {
+        document.getElementById('security-deposit-monthly').innerHTML =
+          '<p style="text-align:center;color:#475569;padding:40px;">No Security Deposit records found.</p>';
+        return;
+      }
+      const counts = months.map(m => byMonth[m].count);
+      const totals = months.map(m => byMonth[m].total);
+      Plotly.newPlot('security-deposit-monthly', [{
+        x: months,
+        y: counts,
+        type: 'bar',
+        marker: { color: '#357296' },
+        customdata: totals,
+        hovertemplate: '<b>%{x}</b><br><b>%{y}</b> deposits<br>AED %{customdata:,.0f}<extra></extra>',
+        text: counts.map(String),
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 12, family: FONT_FAMILY }
+      }], baseLayout({ title: 'Bookings Processed via App — Security Deposits', yaxis: { title: 'Number of Deposits' } }), CONFIG);
+    }
+
+    // ── RENEWAL FEES — MONTHLY ────────────────────────────────────
+    function renderRenewalFeeMonthlyChart(data) {
+      const byMonth = {};
+      data.forEach(item => {
+        if (item['Payment Type'] !== 'Renewal Fee') return;
+        const m = item['Paid Month'];
+        const amt = parsePaid(item['Paid Amount']);
+        if (!m || isNaN(amt)) return;
+        if (!byMonth[m]) byMonth[m] = { count: 0, total: 0 };
+        byMonth[m].count++;
+        byMonth[m].total += amt;
+      });
+      const months = sortMonths(Object.keys(byMonth));
+      if (months.length === 0) {
+        document.getElementById('renewal-fee-monthly').innerHTML =
+          '<p style="text-align:center;color:#475569;padding:40px;">No Renewal Fee records found.</p>';
+        return;
+      }
+      const counts = months.map(m => byMonth[m].count);
+      const totals = months.map(m => byMonth[m].total);
+      Plotly.newPlot('renewal-fee-monthly', [{
+        x: months,
+        y: counts,
+        type: 'bar',
+        marker: { color: '#1D5F3C' },
+        customdata: totals,
+        hovertemplate: '<b>%{x}</b><br><b>%{y}</b> renewals<br>AED %{customdata:,.0f}<extra></extra>',
+        text: counts.map(String),
+        textposition: 'outside',
+        cliponaxis: false,
+        textfont: { color: TEXT, size: 12, family: FONT_FAMILY }
+      }], baseLayout({ title: 'Renewals Processed via App — Renewal Fees', yaxis: { title: 'Number of Renewals' } }), CONFIG);
+    }
+
     function renderProcessingFeeChart(data) {
       const seen = new Set();
       const unique = data.filter(d => {
@@ -1250,6 +1322,8 @@
       run(renderPaymentTypeStackedChart,        'payment type');
       run(renderPaidUpfrontStackedChart,        'upfront SD');
       run(renderPaidUpfrontStackedChartRenewal, 'upfront renewal');
+      run(renderSecurityDepositChart,           'security deposit monthly');
+      run(renderRenewalFeeMonthlyChart,         'renewal fee monthly');
       run(renderProcessingFeeChart,             'proc fee actual');
       run(renderProcessingFeeEstimate1028,      'proc fee est');
       run(renderTopPropertiesTable,             'top properties');
