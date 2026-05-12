@@ -688,7 +688,10 @@
         return Promise.all([dataPromise, ticketsPromise]);
       })
       .then(function(results) {
-        ticketsData = results[1];
+        // Only use tickets where Paid = 'Yes' — enforce in code, not just in the JSON file
+        ticketsData = (results[1] || []).filter(function(t) {
+          return String(t['Paid'] || '').trim().toLowerCase() === 'yes';
+        });
         loadData(results[0], 'data.json');
         populateStatementDropdown();
       })
@@ -1270,6 +1273,7 @@
 
         // Parse day of week from Slot Date (DD-MM-YYYY)
         const parts = slotDate.split('-');
+        if (parts.length !== 3) return;
         const dateObj = new Date(+parts[2], +parts[1] - 1, +parts[0]);
         if (isNaN(dateObj)) return;
         const dayIdx = dateObj.getDay(); // 0=Sunday
@@ -1353,6 +1357,7 @@
         if (!slotDate || !slotTime) return false;
 
         const parts = slotDate.split('-');
+        if (parts.length !== 3) return false;
         const dateObj = new Date(+parts[2], +parts[1] - 1, +parts[0]);
         if (isNaN(dateObj) || dateObj.getDay() !== dayIdx) return false;
 
