@@ -1441,12 +1441,12 @@
         var norm = query.toUpperCase();
 
         // Search tickets by Ticket No
-        var ticket = (window.ticketsData || []).find(function(t) {
+        var ticket = ticketsData.find(function(t) {
           return (t['Ticket No'] || '').trim().toUpperCase() === norm;
         });
 
         // Search payments by SR Number (rawData is the full unfiltered payments set)
-        var payments = (window.rawData || []).filter(function(p) {
+        var payments = rawData.filter(function(p) {
           return (p['SR Number'] || '').trim().toUpperCase() === norm;
         });
 
