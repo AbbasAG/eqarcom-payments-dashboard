@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Al Ghurair Properties</title>
+<style>
+  :root {
+    --primary: #1a3a4a;
+    --primary-light: #2a5a6a;
+    --accent: #c8a45c;
+    --accent-light: #e8d49c;
+    --bg: #f5f3ef;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --text-secondary: #6b7280;
+    --border: #e5e7eb;
+    --success: #059669;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    max-width: 430px; margin: 0 auto; min-height: 100vh;
+    overflow-x: hidden; -webkit-font-smoothing: antialiased;
+  }
+  .page { display: none; min-height: 100vh; animation: fadeIn 0.3s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Welcome */
+  .welcome-hero {
+    position: relative; height: 56vh;
+    background: linear-gradient(180deg, rgba(26,58,74,0.1) 0%, rgba(26,58,74,0.85) 100%),
+                url('https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=800&q=80') center/cover;
+    display: flex; flex-direction: column; justify-content: flex-end; padding: 24px 20px; color: white;
+  }
+  .welcome-hero .logo { position: absolute; top: 20px; left: 20px; font-size: 11px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: white; opacity: 0.9; }
+  .welcome-hero h1 { font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
+  .welcome-hero p { font-size: 14px; opacity: 0.85; line-height: 1.5; }
+  .welcome-body { padding: 20px; }
+  .welcome-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: var(--card); border-radius: var(--radius); padding: 16px 12px; text-align: center; box-shadow: var(--shadow); }
+  .stat-card .num { font-size: 22px; font-weight: 700; color: var(--primary); }
+  .stat-card .label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .about-section { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 24px; box-shadow: var(--shadow); }
+  .about-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: var(--primary); }
+  .about-section p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+  .facilities-section { margin-bottom: 24px; }
+  .facilities-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--primary); }
+  .facilities-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .facility-item { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 10px; padding: 12px; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .facility-item .icon { width: 32px; height: 32px; border-radius: 8px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .welcome-actions { display: flex; flex-direction: column; gap: 12px; padding-bottom: 32px; }
+
+  /* Buttons */
+  .btn-primary { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; background: var(--accent); color: var(--primary); border: none; border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-secondary { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 16px; background: var(--card); color: var(--primary); border: 2px solid var(--primary); border-radius: var(--radius); font-size: 15px; font-weight: 600; cursor: pointer; }
+  .btn-secondary:active { transform: scale(0.98); }
+
+  /* Top Bar */
+  .top-bar { display: flex; align-items: center; padding: 16px 20px; background: white; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+  .top-bar .back-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; color: var(--text); margin-right: 12px; flex-shrink: 0; }
+  .top-bar h2 { font-size: 17px; font-weight: 600; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Filters */
+  .filters-bar { padding: 12px 20px; background: white; border-bottom: 1px solid var(--border); display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .filters-bar::-webkit-scrollbar { display: none; }
+  .filter-chip { display: flex; align-items: center; gap: 4px; padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: white; font-size: 13px; white-space: nowrap; cursor: pointer; transition: all 0.2s; }
+  .filter-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+  .filter-chip .arrow { font-size: 10px; margin-left: 2px; }
+  .filter-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border-bottom: 1px solid var(--border); padding: 16px 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.1); z-index: 90; }
+  .filter-dropdown.open { display: block; }
+  .filter-dropdown .options { display: flex; flex-wrap: wrap; gap: 8px; }
+  .filter-dropdown .option { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; cursor: pointer; background: white; }
+  .filter-dropdown .option.selected { background: var(--primary); color: white; border-color: var(--primary); }
+  .filter-container { position: relative; }
+
+  /* Listings */
+  .listings-container { padding: 16px 20px; padding-bottom: 80px; }
+  .listings-count { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+  .listing-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+  .listing-card:active { transform: scale(0.98); }
+  .listing-image-container { position: relative; height: 200px; overflow: hidden; }
+  .listing-image-scroll { display: flex; height: 100%; transition: transform 0.3s ease; }
+  .listing-image-scroll img { min-width: 100%; height: 100%; object-fit: cover; }
+  .image-dots { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; }
+  .image-dots .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5); }
+  .image-dots .dot.active { background: white; }
+  .listing-badge { position: absolute; top: 12px; left: 12px; background: var(--success); color: white; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; }
+  .listing-info { padding: 14px 16px; }
+  .listing-info .type { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); margin-bottom: 4px; }
+  .listing-info h3 { font-size: 16px; font-weight: 600; margin-bottom: 6px; line-height: 1.3; }
+  .listing-info .location { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+  .listing-attrs { display: flex; gap: 16px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .listing-attrs .attr { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+  .listing-attrs .attr span { font-size: 14px; }
+  .listing-price { font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .listing-price-sub { font-size: 11px; color: var(--text-secondary); margin-bottom: 10px; }
+
+  /* Other Properties Banner */
+  .other-properties-banner { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; color: white; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+  .other-properties-banner h4 { font-size: 14px; font-weight: 600; }
+  .other-properties-banner p { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+  .other-properties-banner .arrow-right { font-size: 20px; opacity: 0.8; }
+
+  /* Unit Details */
+  .detail-carousel { position: relative; height: 300px; overflow: hidden; background: #e5e7eb; }
+  .carousel-track { display: flex; height: 100%; transition: transform 0.35s ease; }
+  .carousel-track img { min-width: 100%; height: 100%; object-fit: cover; }
+  .carousel-nav { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; }
+  .carousel-nav .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4); cursor: pointer; }
+  .carousel-nav .dot.active { background: white; width: 24px; border-radius: 4px; }
+  .carousel-counter { position: absolute; bottom: 16px; right: 16px; background: rgba(0,0,0,0.6); color: white; font-size: 12px; padding: 4px 10px; border-radius: 12px; }
+  .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.9); border: none; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .carousel-btn.prev { left: 12px; }
+  .carousel-btn.next { right: 12px; }
+  .detail-back-btn { position: absolute; top: 16px; left: 16px; width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.9); border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .detail-share-btn { position: absolute; top: 16px; right: 16px; height: 36px; padding: 0 14px; border-radius: 20px; background: rgba(255,255,255,0.95); border: none; font-size: 13px; font-weight: 600; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 5px; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-family: inherit; }
+  .detail-content { padding: 20px; padding-bottom: 100px; }
+  .detail-header { margin-bottom: 20px; }
+  .detail-header .type-badge { display: inline-block; padding: 4px 12px; background: rgba(200,164,92,0.15); color: var(--accent); font-size: 12px; font-weight: 600; border-radius: 6px; margin-bottom: 8px; }
+  .detail-header h1 { font-size: 22px; font-weight: 700; line-height: 1.3; margin-bottom: 4px; }
+  .detail-header .address { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+  .detail-header .price { font-size: 24px; font-weight: 700; color: var(--primary); margin-top: 12px; }
+  .detail-header .price-note { font-size: 12px; color: var(--text-secondary); }
+  .detail-quick-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+  .quick-stat { background: var(--bg); border-radius: 10px; padding: 14px; text-align: center; }
+  .quick-stat .icon { font-size: 20px; margin-bottom: 4px; }
+  .quick-stat .value { font-size: 15px; font-weight: 600; }
+  .quick-stat .label { font-size: 11px; color: var(--text-secondary); }
+  .detail-section { margin-bottom: 24px; }
+  .detail-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--primary); }
+  .detail-section p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+  .plans-list { display: flex; flex-direction: column; gap: 10px; }
+  .plan-card { background: var(--bg); border-radius: 10px; padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .plan-card .installments { font-size: 14px; font-weight: 600; color: var(--primary); }
+  .plan-card .rent { font-size: 16px; font-weight: 700; color: var(--primary); }
+  .plan-card .deposit { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .plan-details { text-align: right; }
+  .virtual-tour-btn { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 16px; background: var(--primary); color: white; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; width: 100%; }
+
+  /* Share Sheet */
+  .share-sheet { display: none; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: white; border-radius: 20px 20px 0 0; padding: 24px 20px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 250; box-shadow: 0 -8px 30px rgba(0,0,0,0.15); }
+  .share-sheet.open { display: block; animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+  .share-sheet h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; text-align: center; }
+  .share-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .share-opt { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; border-radius: 12px; border: none; background: var(--bg); cursor: pointer; font-size: 11px; color: var(--text); font-weight: 500; }
+  .share-opt .s-icon { font-size: 24px; }
+  .share-opt:active { background: var(--border); }
+  .share-sheet .cancel-btn { margin-top: 16px; width: 100%; padding: 14px; border: none; background: var(--bg); border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; color: var(--text-secondary); }
+  .share-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 240; }
+  .share-backdrop.open { display: block; }
+
+  /* Floorplan Viewer */
+  .floorplan-viewer { background: var(--bg); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
+  .floorplan-viewer img { width: 100%; display: block; cursor: zoom-in; }
+  .floorplan-viewer .actions { display: flex; justify-content: center; gap: 10px; padding: 10px; }
+  .floorplan-viewer .actions button { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: white; font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 5px; color: var(--text); }
+  .floorplan-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; align-items: center; justify-content: center; }
+  .floorplan-overlay.open { display: flex; }
+  .floorplan-overlay .close-btn { position: absolute; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: white; font-size: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .floorplan-overlay .zoom-controls { position: absolute; bottom: 24px; display: flex; gap: 12px; z-index: 10; }
+  .floorplan-overlay .zoom-controls button { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .floorplan-overlay .img-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: auto; -webkit-overflow-scrolling: touch; padding: 60px 16px 80px; }
+  .floorplan-overlay .img-container img { max-width: 100%; max-height: 100%; transition: transform 0.25s ease; transform-origin: center center; }
+  .floorplan-overlay .fp-label { position: absolute; top: 20px; left: 20px; color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; }
+
+  /* Sticky CTA */
+  .sticky-cta { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; padding: 16px 20px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); background: white; border-top: 1px solid var(--border); display: flex; gap: 10px; z-index: 100; }
+  .sticky-cta .btn-primary { flex: 1; }
+  .sticky-cta .btn-icon { width: 52px; height: 52px; border-radius: var(--radius); border: 2px solid var(--primary); background: white; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; flex-shrink: 0; }
+
+  /* Booking Form */
+  .form-body { padding: 20px; padding-bottom: 120px; }
+  .form-unit-summary { display: flex; gap: 14px; background: var(--card); border-radius: var(--radius); padding: 14px; margin-bottom: 24px; box-shadow: var(--shadow); }
+  .form-unit-summary img { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; }
+  .form-unit-summary .info { flex: 1; }
+  .form-unit-summary .info h4 { font-size: 14px; font-weight: 600; }
+  .form-unit-summary .info p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .form-unit-summary .info .price { font-size: 15px; font-weight: 700; color: var(--primary); margin-top: 6px; }
+  .form-section { margin-bottom: 24px; }
+  .form-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 14px; color: var(--primary); }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid var(--border); font-size: 15px; font-family: inherit; color: var(--text); background: white; -webkit-appearance: none; transition: border-color 0.2s; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--primary); }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .request-type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .type-option { padding: 16px; border-radius: 10px; border: 2px solid var(--border); text-align: center; cursor: pointer; transition: all 0.2s; }
+  .type-option.active { border-color: var(--primary); background: rgba(26,58,74,0.05); }
+  .type-option .icon { font-size: 24px; margin-bottom: 6px; }
+  .type-option .label { font-size: 13px; font-weight: 600; }
+  .type-option .desc { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* Emirates ID Upload */
+  .id-upload-section { margin-bottom: 24px; }
+  .id-option { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 10px; border: 2px solid var(--border); margin-bottom: 10px; cursor: pointer; transition: all 0.2s; }
+  .id-option.selected { border-color: var(--primary); background: rgba(26,58,74,0.05); }
+  .id-option .id-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .id-option .id-text h4 { font-size: 14px; font-weight: 600; }
+  .id-option .id-text p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .file-upload-area { display: none; margin-top: 10px; padding: 24px; border: 2px dashed var(--border); border-radius: 10px; text-align: center; cursor: pointer; }
+  .file-upload-area.visible { display: block; }
+  .file-upload-area .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .file-upload-area p { font-size: 13px; color: var(--text-secondary); }
+  .file-upload-area .file-name { font-size: 13px; color: var(--success); font-weight: 600; margin-top: 8px; }
+
+  /* Booking Summary / What Happens Next */
+  .summary-page { padding: 20px; padding-bottom: 100px; }
+  .summary-steps { display: flex; flex-direction: column; gap: 0; }
+  .summary-step { display: flex; gap: 14px; padding: 16px 0; }
+  .summary-step .step-num { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+  .summary-step .step-content h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .summary-step .step-content p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+  .step-connector { width: 2px; height: 16px; background: var(--border); margin-left: 17px; }
+  .summary-card { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 20px; box-shadow: var(--shadow); }
+  .summary-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--primary); }
+  .summary-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-row .lbl { color: var(--text-secondary); }
+  .summary-row .val { font-weight: 600; }
+
+  /* Success Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.open { display: flex; }
+  .modal-content { background: white; border-radius: 20px; padding: 32px 24px; text-align: center; max-width: 340px; width: 100%; animation: modalIn 0.3s ease; }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+  .modal-content .check { width: 64px; height: 64px; border-radius: 50%; background: rgba(5,150,105,0.1); display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 16px; }
+  .modal-content h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .modal-content p { font-size: 14px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 20px; }
+
+  /* Properties Page */
+  .property-selector { padding: 20px; padding-bottom: 80px; }
+  .property-card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; cursor: pointer; position: relative; }
+  .property-card img { width: 100%; height: 160px; object-fit: cover; }
+  .property-card .info { padding: 14px 16px; }
+  .property-card .info h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .property-card .info p { font-size: 12px; color: var(--text-secondary); }
+  .property-card .info .units-count { font-size: 13px; font-weight: 600; color: var(--primary); margin-top: 10px; margin-bottom: 8px; }
+  .property-card .info .unit-types { display: flex; flex-wrap: wrap; gap: 6px; }
+  .property-card .info .unit-type-chip { padding: 4px 10px; background: var(--bg); border-radius: 6px; font-size: 11px; font-weight: 500; color: var(--text-secondary); }
+  .promo-stamp { position: absolute; top: 12px; right: 12px; background: linear-gradient(135deg, #e65100, #ff8f00); color: white; font-size: 11px; font-weight: 700; padding: 6px 12px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.3px; box-shadow: 0 2px 8px rgba(230,81,0,0.3); }
+
+  /* Community Search */
+  .search-bar { padding: 12px 20px; background: white; border-bottom: 1px solid var(--border); }
+  .search-input-wrap { display: flex; align-items: center; gap: 10px; background: var(--bg); border-radius: 10px; padding: 10px 14px; }
+  .search-input-wrap .s-icon { font-size: 16px; color: var(--text-secondary); flex-shrink: 0; }
+  .search-input-wrap input { flex: 1; border: none; background: none; font-size: 14px; font-family: inherit; color: var(--text); outline: none; }
+  .search-input-wrap input::placeholder { color: var(--text-secondary); }
+  .search-suggestions { display: none; background: white; border-bottom: 1px solid var(--border); padding: 0 20px; max-height: 200px; overflow-y: auto; }
+  .search-suggestions.open { display: block; }
+  .search-suggestion { padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .search-suggestion:last-child { border-bottom: none; }
+  .search-suggestion .loc-icon { color: var(--text-secondary); font-size: 14px; }
+  .search-suggestion:active { color: var(--primary); }
+
+  /* Type Toggle */
+  .type-toggle-bar { display: flex; gap: 0; background: var(--bg); margin: 12px 20px; border-radius: 10px; padding: 4px; }
+  .type-toggle { flex: 1; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; border: none; background: none; }
+  .type-toggle.active { background: white; color: var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+  /* Chat FAB */
+  .chat-fab { position: fixed; bottom: 24px; right: calc((100vw - 430px) / 2 + 20px); width: 56px; height: 56px; border-radius: 50%; background: var(--primary); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(26,58,74,0.35); display: flex; align-items: center; justify-content: center; z-index: 150; transition: transform 0.2s; }
+  .chat-fab:active { transform: scale(0.9); }
+  @media (max-width: 430px) { .chat-fab { right: 20px; } }
+  .chat-fab-tooltip { position: fixed; bottom: 88px; right: calc((100vw - 430px) / 2 + 12px); background: var(--primary); color: white; font-size: 12px; font-weight: 500; padding: 8px 14px; border-radius: 8px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 150; animation: fadeIn 0.3s ease; }
+  @media (max-width: 430px) { .chat-fab-tooltip { right: 12px; } }
+  .chat-fab-tooltip::after { content: ''; position: absolute; bottom: -6px; right: 20px; width: 12px; height: 12px; background: var(--primary); transform: rotate(45deg); }
+
+  /* Page-specific CTA offset */
+  .page-with-sticky { padding-bottom: 90px; }
+</style>
+</head>
+<body>
+
+<!-- ========== PAGE 1: WELCOME ========== -->
+<div id="page-welcome" class="page active">
+  <div class="welcome-hero">
+    <div class="logo">Al Ghurair Properties</div>
+    <h1 id="welcome-building-name">02 Residences</h1>
+    <p id="welcome-building-location">Jumeirah Village Triangle, Dubai</p>
+  </div>
+  <div class="welcome-body">
+    <div class="welcome-stats">
+      <div class="stat-card"><div class="num" id="stat-units">6</div><div class="label">Available Units</div></div>
+      <div class="stat-card"><div class="num" id="stat-types">4</div><div class="label">Unit Types</div></div>
+      <div class="stat-card"><div class="num" id="stat-floors">6</div><div class="label">Floors</div></div>
+    </div>
+    <div class="about-section">
+      <h3>About This Property</h3>
+      <p id="welcome-description">02 Residences is a premium residential tower in the heart of Jumeirah Village Triangle.</p>
+    </div>
+    <div class="facilities-section">
+      <h3>Building Facilities</h3>
+      <div class="facilities-grid">
+        <div class="facility-item"><div class="icon">🏊</div>Swimming Pool</div>
+        <div class="facility-item"><div class="icon">💪</div>Fitness Centre</div>
+        <div class="facility-item"><div class="icon">🅿️</div>Covered Parking</div>
+        <div class="facility-item"><div class="icon">👮</div>24/7 Security</div>
+        <div class="facility-item"><div class="icon">🌳</div>Landscaped Garden</div>
+        <div class="facility-item"><div class="icon">👶</div>Kids Play Area</div>
+      </div>
+    </div>
+    <div class="welcome-actions">
+      <button class="btn-primary" onclick="showPage('page-listings')">View Available Units</button>
+      <button class="btn-secondary" onclick="showBookingForm(null, 'inquiry')">Submit an Inquiry</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== PAGE 2: LISTINGS ========== -->
+<div id="page-listings" class="page">
+  <div class="top-bar">
+    <div class="back-btn" onclick="showPage('page-welcome')">&#8249;</div>
+    <h2 id="listings-title">02 Residences</h2>
+  </div>
+  <div class="filter-container">
+    <div class="filters-bar">
+      <div class="filter-chip" data-filter="bedrooms" onclick="toggleFilter('bedrooms')">Bedrooms <span class="arrow">▾</span></div>
+      <div class="filter-chip" data-filter="price" onclick="toggleFilter('price')">Price <span class="arrow">▾</span></div>
+      <div class="filter-chip" data-filter="area" onclick="toggleFilter('area')">Area <span class="arrow">▾</span></div>
+    </div>
+    <div id="filter-dropdown" class="filter-dropdown"></div>
+  </div>
+  <div class="listings-container">
+    <div class="listings-count" id="listings-count"></div>
+    <div class="other-properties-banner" onclick="showPage('page-properties')">
+      <div><h4>Explore Other Properties</h4><p>View more buildings by Al Ghurair Properties</p></div>
+      <span class="arrow-right">›</span>
+    </div>
+    <div id="listings-grid"></div>
+  </div>
+</div>
+
+<!-- ========== PAGE 3: UNIT DETAILS ========== -->
+<div id="page-detail" class="page">
+  <div class="detail-carousel" id="detail-carousel">
+    <button class="detail-back-btn" onclick="showPage('page-listings')">&#8249;</button>
+    <button class="detail-share-btn" onclick="openShareSheet()">↗ Share</button>
+    <div class="carousel-track" id="carousel-track"></div>
+    <button class="carousel-btn prev" onclick="moveCarousel(-1)">&#8249;</button>
+    <button class="carousel-btn next" onclick="moveCarousel(1)">&#8250;</button>
+    <div class="carousel-nav" id="carousel-nav"></div>
+    <div class="carousel-counter" id="carousel-counter">1 / 4</div>
+  </div>
+  <div class="detail-content" id="detail-content"></div>
+  <div class="sticky-cta">
+    <button class="btn-icon" onclick="showBookingForm(currentUnit, 'viewing')">📅</button>
+    <button class="btn-primary" onclick="showBookingForm(currentUnit, 'booking')">Book This Unit</button>
+  </div>
+</div>
+
+<!-- ========== PAGE 4: BOOKING FORM ========== -->
+<div id="page-booking" class="page">
+  <div class="top-bar">
+    <div class="back-btn" id="booking-back-btn">&#8249;</div>
+    <h2 id="booking-title">Book Unit</h2>
+  </div>
+  <div class="form-body">
+    <div id="booking-unit-summary"></div>
+    <div class="request-type-toggle">
+      <div class="type-option active" data-type="viewing" onclick="setRequestType('viewing')">
+        <div class="icon">🏠</div><div class="label">Schedule Viewing</div><div class="desc">Visit the unit in person</div>
+      </div>
+      <div class="type-option" data-type="booking" onclick="setRequestType('booking')">
+        <div class="icon">📋</div><div class="label">Booking Request</div><div class="desc">Reserve this unit</div>
+      </div>
+    </div>
+    <div class="form-section">
+      <h3>Your Details</h3>
+      <div class="form-group"><label>Full Name</label><input type="text" id="form-name" placeholder="Enter your full name"></div>
+      <div class="form-group"><label>Email Address</label><input type="email" id="form-email" placeholder="your@email.com"></div>
+      <div class="form-group"><label>Phone Number</label><input type="tel" id="form-phone" placeholder="+971 50 123 4567"></div>
+    </div>
+    <div class="form-section" id="viewing-fields">
+      <h3>Preferred Viewing</h3>
+      <div class="form-group"><label>Preferred Date</label><input type="date" id="form-date"></div>
+      <div class="form-group"><label>Preferred Time</label>
+        <select id="form-time"><option value="">Select a time slot</option><option>9:00 AM - 10:00 AM</option><option>10:00 AM - 11:00 AM</option><option>11:00 AM - 12:00 PM</option><option>1:00 PM - 2:00 PM</option><option>2:00 PM - 3:00 PM</option><option>3:00 PM - 4:00 PM</option><option>4:00 PM - 5:00 PM</option></select>
+      </div>
+    </div>
+    <div class="form-section" id="booking-fields" style="display:none;">
+      <h3>Booking Preferences</h3>
+      <div class="form-group"><label>Preferred Payment Plan</label><select id="form-plan"></select></div>
+      <div class="form-group"><label>Desired Move-in Date</label><input type="date" id="form-movein"></div>
+    </div>
+    <div class="form-section" id="id-section" style="display:none;">
+      <h3>Emirates ID Verification</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">We need your Emirates ID to process the booking. Choose how you'd like to share it:</p>
+      <div class="id-option" data-method="uaepass" onclick="selectIdMethod('uaepass')">
+        <div class="id-icon">🇦🇪</div>
+        <div class="id-text"><h4>Share via UAE Pass</h4><p>Securely verify using your UAE Pass app</p></div>
+      </div>
+      <div class="id-option" data-method="upload" onclick="selectIdMethod('upload')">
+        <div class="id-icon">📄</div>
+        <div class="id-text"><h4>Upload Directly</h4><p>Upload a photo or scan of your Emirates ID</p></div>
+      </div>
+      <div class="file-upload-area" id="file-upload-area" onclick="document.getElementById('eid-file').click()">
+        <div class="upload-icon">📤</div>
+        <p>Tap to upload your Emirates ID<br><span style="font-size:11px;">(Front & back, JPG or PDF)</span></p>
+        <div class="file-name" id="file-name-display"></div>
+        <input type="file" id="eid-file" accept="image/*,.pdf" style="display:none" onchange="handleFileSelect(this)">
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-group"><label>Additional Notes</label><textarea id="form-notes" placeholder="Any specific requirements or questions?"></textarea></div>
+    </div>
+    <button class="btn-primary" onclick="submitForm()" id="submit-btn">Schedule Viewing</button>
+  </div>
+</div>
+
+<!-- ========== PAGE 5: BOOKING SUMMARY ========== -->
+<div id="page-summary" class="page">
+  <div class="top-bar">
+    <div class="back-btn" onclick="showPage('page-booking')">&#8249;</div>
+    <h2>Review & Submit</h2>
+  </div>
+  <div class="summary-page">
+    <div id="summary-details"></div>
+    <div class="detail-section">
+      <h3>What Happens Next</h3>
+      <div class="summary-steps">
+        <div class="summary-step"><div class="step-num">1</div><div class="step-content"><h4>Application Review</h4><p>Our leasing team will review your profile, KYC documents, and Emirates ID within 24 hours.</p></div></div>
+        <div class="step-connector"></div>
+        <div class="summary-step"><div class="step-num">2</div><div class="step-content"><h4>Approval & Offer</h4><p>Once approved, you'll receive a formal lease offer with your chosen unit and payment plan details.</p></div></div>
+        <div class="step-connector"></div>
+        <div class="summary-step"><div class="step-num">3</div><div class="step-content"><h4>Security Deposit</h4><p>Proceed with the security deposit payment to secure your unit. Online payment options available.</p></div></div>
+        <div class="step-connector"></div>
+        <div class="summary-step"><div class="step-num">4</div><div class="step-content"><h4>Onboarding & Move-in</h4><p>Sign your lease agreement, collect your keys, and complete DEWA/Ejari registration. Welcome home!</p></div></div>
+      </div>
+    </div>
+    <button class="btn-primary" onclick="confirmBooking()" style="margin-top:12px;">Confirm Booking Request</button>
+    <button class="btn-secondary" onclick="showPage('page-booking')" style="margin-top:12px;">Go Back & Edit</button>
+  </div>
+</div>
+
+<!-- ========== PAGE 6: OTHER PROPERTIES ========== -->
+<div id="page-properties" class="page">
+  <div class="top-bar">
+    <div class="back-btn" onclick="showPage('page-listings')">&#8249;</div>
+    <h2>Al Ghurair Properties</h2>
+  </div>
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span class="s-icon">🔍</span>
+      <input type="text" id="community-search" placeholder="Search by community..." oninput="onCommunitySearch(this.value)" onfocus="onCommunitySearch(this.value)">
+    </div>
+  </div>
+  <div class="search-suggestions" id="search-suggestions"></div>
+  <div class="type-toggle-bar">
+    <button class="type-toggle active" data-type="all" onclick="setPropertyType('all')">All</button>
+    <button class="type-toggle" data-type="Apartment" onclick="setPropertyType('Apartment')">Apartments</button>
+    <button class="type-toggle" data-type="Villa" onclick="setPropertyType('Villa')">Villas</button>
+  </div>
+  <div class="property-selector" id="properties-grid"></div>
+</div>
+
+<!-- ========== SHARE SHEET ========== -->
+<div class="share-backdrop" id="share-backdrop" onclick="closeShareSheet()"></div>
+<div class="share-sheet" id="share-sheet">
+  <h3>Share This Listing</h3>
+  <div class="share-options">
+    <button class="share-opt" onclick="shareTo('whatsapp')"><span class="s-icon">💬</span>WhatsApp</button>
+    <button class="share-opt" onclick="shareTo('email')"><span class="s-icon">📧</span>Email</button>
+    <button class="share-opt" onclick="shareTo('copy')"><span class="s-icon">🔗</span>Copy Link</button>
+    <button class="share-opt" onclick="shareTo('pdf')"><span class="s-icon">📄</span>Save PDF</button>
+  </div>
+  <button class="cancel-btn" onclick="closeShareSheet()">Cancel</button>
+</div>
+
+<!-- ========== FLOORPLAN FULLSCREEN ========== -->
+<div class="floorplan-overlay" id="floorplan-overlay">
+  <span class="fp-label" id="fp-label">Floor Plan</span>
+  <button class="close-btn" onclick="closeFloorplan()">✕</button>
+  <div class="img-container"><img id="fp-fullscreen-img" src="" alt="Floor Plan"></div>
+  <div class="zoom-controls">
+    <button onclick="zoomFloorplan(-1)">−</button>
+    <button onclick="resetZoomFloorplan()">⤢</button>
+    <button onclick="zoomFloorplan(1)">+</button>
+  </div>
+</div>
+
+<!-- ========== SUCCESS MODAL ========== -->
+<div class="modal-overlay" id="success-modal">
+  <div class="modal-content">
+    <div class="check">✓</div>
+    <h3 id="modal-title">Request Submitted!</h3>
+    <p id="modal-message"></p>
+    <button class="btn-primary" onclick="closeModal()">Back to Listings</button>
+  </div>
+</div>
+
+<!-- ========== CHAT FAB ========== -->
+<div class="chat-fab-tooltip" id="chat-tooltip" style="display:none;">Need help? Chat with us</div>
+<button class="chat-fab" id="chat-fab" onclick="openChat()">💬</button>
+
+<!-- ========== CHAT MODAL ========== -->
+<div class="modal-overlay" id="chat-modal">
+  <div class="modal-content" style="text-align:left;max-width:380px;padding:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:16px;">Al Ghurair Assistant</h3>
+      <button onclick="document.getElementById('chat-modal').classList.remove('open')" style="border:none;background:none;font-size:20px;cursor:pointer;color:var(--text-secondary);">✕</button>
+    </div>
+    <div style="background:var(--bg);border-radius:12px;padding:14px;margin-bottom:12px;">
+      <p style="font-size:13px;color:var(--text);line-height:1.5;margin:0;">Hi! I'm your Al Ghurair Properties assistant. I can help you with:</p>
+      <ul style="font-size:13px;color:var(--text-secondary);margin:8px 0 0 16px;line-height:1.8;">
+        <li>Finding the right unit for you</li>
+        <li>Payment plan questions</li>
+        <li>Booking and viewing assistance</li>
+        <li>Community information</li>
+      </ul>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <input type="text" placeholder="Type a message..." style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);font-size:14px;font-family:inherit;outline:none;">
+      <button style="width:44px;height:44px;border-radius:10px;background:var(--primary);color:white;border:none;font-size:16px;cursor:pointer;">➤</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const propertyData = [
+  {
+    businessUnit: "AL GHURAIR PROPERTIES",
+    propertyReferenceNumber: "805",
+    buildingName: "02 Residences",
+    makaninumber: "1278974444",
+    propertyCode: "49-0",
+    propertyNumber: "393-946",
+    propertyDescription: "02 Residences is a premium residential tower in the heart of Jumeirah Village Triangle. Featuring modern architecture, spacious layouts, and world-class amenities, the building offers a range of studio, 1-bedroom, 2-bedroom, and 3-bedroom apartments designed for contemporary urban living. Residents enjoy landscaped gardens, a temperature-controlled pool, and direct access to community retail and dining.",
+    effectiveStartDate: "11-01-2021", effectiveEndDate: "24-10-2050",
+    erpActiveStartDate: "24-10-2020", erpActiveEndDate: "24-10-2050",
+    addressLine1: "02 Residences", addressLine2: "Jumeirah Village Triangle",
+    community: "Jumeirah Village Triangle", subCommunity: "Al Mankhool",
+    emirates: "Dubai", country: "United Arab Emirates",
+    latitude: "55.3309", longitude: "25.2788",
+    hasMonthlyPayments: true,
+    units: [
+      {
+        floorNumber: "3", unitNumber: "301", unitCode: "805-3-301",
+        usagesType: "Residential", unitType: "Apartment", unitSubType: "Studio",
+        suiteSize: null, balconySize: "45", areaSQFT: "420", dewaPremiseNumber: "2001",
+        unitDescription: "Bright studio apartment with an open-plan layout, built-in wardrobes, and a private balcony offering community views. Ideal for young professionals.",
+        paymentPlans: [
+          { numberOfInstallments: 1, annualRent: 38000, securityDeposit: 1900 },
+          { numberOfInstallments: 4, annualRent: 40000, securityDeposit: 2000 },
+          { numberOfInstallments: 6, annualRent: 42000, securityDeposit: 2100 },
+          { numberOfInstallments: 12, annualRent: 44000, securityDeposit: 2200 }
+        ],
+        media: [
+          { url: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true },
+          { url: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "floorplans/fp1.jpg", mediaType: "Floorplan", isMarketingPhoto: false }
+        ]
+      },
+      {
+        floorNumber: "5", unitNumber: "502", unitCode: "805-5-502",
+        usagesType: "Residential", unitType: "Apartment", unitSubType: "1BR",
+        suiteSize: null, balconySize: "65", areaSQFT: "750", dewaPremiseNumber: "2002",
+        unitDescription: "Spacious one-bedroom apartment featuring a separate living area, modern kitchen with premium appliances, and a generous balcony. The master bedroom includes an en-suite bathroom with rain shower.",
+        paymentPlans: [
+          { numberOfInstallments: 1, annualRent: 55000, securityDeposit: 2750 },
+          { numberOfInstallments: 4, annualRent: 58000, securityDeposit: 2900 },
+          { numberOfInstallments: 6, annualRent: 60000, securityDeposit: 3000 },
+          { numberOfInstallments: 12, annualRent: 63000, securityDeposit: 3150 }
+        ],
+        media: [
+          { url: "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true },
+          { url: "https://images.unsplash.com/photo-1560185893-a55cbc8c57e8?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "floorplans/fp5.jpg", mediaType: "Floorplan", isMarketingPhoto: false }
+        ]
+      },
+      {
+        floorNumber: "7", unitNumber: "701", unitCode: "805-7-701",
+        usagesType: "Residential", unitType: "Apartment", unitSubType: "1BR",
+        suiteSize: null, balconySize: "70", areaSQFT: "780", dewaPremiseNumber: "2003",
+        unitDescription: "Corner one-bedroom unit with wrap-around windows offering panoramic views of the JVT community. Features an upgraded kitchen, spacious living-dining area, and a master suite with walk-in closet.",
+        paymentPlans: [
+          { numberOfInstallments: 1, annualRent: 58000, securityDeposit: 2900 },
+          { numberOfInstallments: 4, annualRent: 61000, securityDeposit: 3050 },
+          { numberOfInstallments: 6, annualRent: 63000, securityDeposit: 3150 },
+          { numberOfInstallments: 12, annualRent: 66000, securityDeposit: 3300 }
+        ],
+        media: [
+          { url: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true },
+          { url: "https://images.unsplash.com/photo-1600210491892-03d54c0aaf87?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "floorplans/fp3.webp", mediaType: "Floorplan", isMarketingPhoto: false }
+        ]
+      },
+      {
+        floorNumber: "8", unitNumber: "802", unitCode: "805-8-802",
+        usagesType: "Residential", unitType: "Apartment", unitSubType: "2BR",
+        suiteSize: null, balconySize: "90", areaSQFT: "1150", dewaPremiseNumber: "2004",
+        unitDescription: "Generous two-bedroom apartment with a large open living and dining space, maid's room, and two full bathrooms. The master bedroom features an en-suite with double vanity.",
+        paymentPlans: [
+          { numberOfInstallments: 1, annualRent: 82000, securityDeposit: 4100 },
+          { numberOfInstallments: 4, annualRent: 86000, securityDeposit: 4300 },
+          { numberOfInstallments: 6, annualRent: 90000, securityDeposit: 4500 },
+          { numberOfInstallments: 12, annualRent: 95000, securityDeposit: 4750 }
+        ],
+        media: [
+          { url: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true },
+          { url: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "https://images.unsplash.com/photo-1600573472592-401b489a3cdc?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "floorplans/fp6.avif", mediaType: "Floorplan", isMarketingPhoto: false },
+          { url: "https://example.com/tour/805-8-802", mediaType: "Virtual Tour Link", isMarketingPhoto: false }
+        ]
+      },
+      {
+        floorNumber: "10", unitNumber: "1001", unitCode: "805-10-1001",
+        usagesType: "Residential", unitType: "Apartment", unitSubType: "2BR",
+        suiteSize: null, balconySize: "95", areaSQFT: "1200", dewaPremiseNumber: "2005",
+        unitDescription: "Premium corner two-bedroom on a high floor with unobstructed skyline views. Features floor-to-ceiling windows, an upgraded kitchen island, and a wraparound balcony.",
+        paymentPlans: [
+          { numberOfInstallments: 1, annualRent: 90000, securityDeposit: 4500 },
+          { numberOfInstallments: 4, annualRent: 95000, securityDeposit: 4750 },
+          { numberOfInstallments: 6, annualRent: 98000, securityDeposit: 4900 },
+          { numberOfInstallments: 12, annualRent: 103000, securityDeposit: 5150 }
+        ],
+        media: [
+          { url: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true },
+          { url: "https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "floorplans/fp4.webp", mediaType: "Floorplan", isMarketingPhoto: false }
+        ]
+      },
+      {
+        floorNumber: "12", unitNumber: "1201", unitCode: "805-12-1201",
+        usagesType: "Residential", unitType: "Apartment", unitSubType: "3BR",
+        suiteSize: null, balconySize: "120", areaSQFT: "1650", dewaPremiseNumber: "2006",
+        unitDescription: "Penthouse-level three-bedroom apartment occupying a full half-floor. Features a grand living room, separate family lounge, maid's quarters, laundry room, and three en-suite bedrooms.",
+        paymentPlans: [
+          { numberOfInstallments: 1, annualRent: 130000, securityDeposit: 6500 },
+          { numberOfInstallments: 4, annualRent: 138000, securityDeposit: 6900 },
+          { numberOfInstallments: 6, annualRent: 145000, securityDeposit: 7250 },
+          { numberOfInstallments: 12, annualRent: 152000, securityDeposit: 7600 }
+        ],
+        media: [
+          { url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true },
+          { url: "https://images.unsplash.com/photo-1600121848594-d8644e57abab?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&q=80", mediaType: "Photo", isMarketingPhoto: false },
+          { url: "floorplans/fp7.avif", mediaType: "Floorplan", isMarketingPhoto: false },
+          { url: "https://example.com/tour/805-12-1201", mediaType: "Virtual Tour Link", isMarketingPhoto: false }
+        ]
+      }
+    ]
+  },
+  {
+    businessUnit: "AL GHURAIR PROPERTIES", propertyReferenceNumber: "810",
+    buildingName: "Azure Tower", propertyCode: "52-0", propertyNumber: "410-112",
+    propertyDescription: "Azure Tower is a contemporary residential building in Dubai Marina offering stunning waterfront views and direct beach access. With premium finishes and resort-style amenities, it's perfect for those seeking a luxury coastal lifestyle.",
+    addressLine1: "Azure Tower", addressLine2: "Dubai Marina",
+    community: "Dubai Marina", subCommunity: "Marina Promenade",
+    emirates: "Dubai", country: "United Arab Emirates", latitude: "55.1375", longitude: "25.0765",
+    units: [
+      { floorNumber: "6", unitNumber: "601", unitCode: "810-6-601", usagesType: "Residential", unitType: "Apartment", unitSubType: "1BR", areaSQFT: "820", unitDescription: "Marina view one-bedroom with premium finishes.", balconySize: "60",
+        paymentPlans: [{ numberOfInstallments: 1, annualRent: 75000, securityDeposit: 3750 }, { numberOfInstallments: 4, annualRent: 80000, securityDeposit: 4000 }],
+        media: [{ url: "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true }]
+      }
+    ]
+  },
+  {
+    businessUnit: "AL GHURAIR PROPERTIES", propertyReferenceNumber: "815",
+    buildingName: "Opal Gardens", propertyCode: "55-0", propertyNumber: "422-330",
+    propertyDescription: "Opal Gardens is a family-oriented residential complex in Al Furjan featuring spacious layouts, green courtyards, and excellent connectivity to major highways and the metro.",
+    addressLine1: "Opal Gardens", addressLine2: "Al Furjan",
+    community: "Al Furjan", subCommunity: "Al Furjan South",
+    emirates: "Dubai", country: "United Arab Emirates", latitude: "55.1432", longitude: "25.0247",
+    units: [
+      { floorNumber: "2", unitNumber: "201", unitCode: "815-2-201", usagesType: "Residential", unitType: "Apartment", unitSubType: "2BR", areaSQFT: "1100", unitDescription: "Family two-bedroom with garden views.", balconySize: "80",
+        paymentPlans: [{ numberOfInstallments: 1, annualRent: 65000, securityDeposit: 3250 }, { numberOfInstallments: 6, annualRent: 70000, securityDeposit: 3500 }],
+        media: [{ url: "https://images.unsplash.com/photo-1567767292278-a4f21aa2d36e?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true }]
+      }
+    ]
+  },
+  {
+    businessUnit: "AL GHURAIR PROPERTIES", propertyReferenceNumber: "820",
+    buildingName: "Palm Villas", propertyCode: "60-0", propertyNumber: "440-200",
+    propertyDescription: "Palm Villas is an exclusive gated villa community in Arabian Ranches offering spacious 3 and 4-bedroom villas with private gardens, pools, and premium landscaping. A family lifestyle destination.",
+    addressLine1: "Palm Villas", addressLine2: "Arabian Ranches",
+    community: "Arabian Ranches", subCommunity: "Arabian Ranches 2",
+    emirates: "Dubai", country: "United Arab Emirates", latitude: "55.2400", longitude: "25.0600",
+    units: [
+      { floorNumber: "G", unitNumber: "V12", unitCode: "820-G-V12", usagesType: "Residential", unitType: "Villa", unitSubType: "3BR", areaSQFT: "2800", unitDescription: "Three-bedroom villa with private garden, covered parking, and maid's room. Open-plan living with modern finishes.", balconySize: null,
+        paymentPlans: [{ numberOfInstallments: 1, annualRent: 180000, securityDeposit: 9000 }, { numberOfInstallments: 4, annualRent: 190000, securityDeposit: 9500 }],
+        media: [{ url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true }]
+      },
+      { floorNumber: "G", unitNumber: "V18", unitCode: "820-G-V18", usagesType: "Residential", unitType: "Villa", unitSubType: "4BR", areaSQFT: "3500", unitDescription: "Four-bedroom villa with private pool, landscaped garden, double garage, and premium kitchen. Master suite on the upper level.", balconySize: null,
+        paymentPlans: [{ numberOfInstallments: 1, annualRent: 240000, securityDeposit: 12000 }, { numberOfInstallments: 4, annualRent: 255000, securityDeposit: 12750 }],
+        media: [{ url: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80", mediaType: "Photo", isMarketingPhoto: true }]
+      }
+    ]
+  }
+];
+
+// ============ STATE ============
+let currentProperty = propertyData[0];
+let currentUnit = null;
+let carouselIndex = 0;
+let activeFilters = { bedrooms: null, price: null, area: null };
+let openFilter = null;
+let requestType = 'viewing';
+let bookingReturnPage = 'page-detail';
+let propertyTypeFilter = 'all';
+let communityFilter = '';
+let selectedIdMethod = null;
+
+// ============ NAVIGATION ============
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  window.scrollTo(0, 0);
+  if (pageId === 'page-listings') renderListings();
+  if (pageId === 'page-properties') renderProperties();
+}
+
+// ============ FILTERS ============
+const filterOptions = {
+  bedrooms: [{ label: 'Studio', value: 'Studio' },{ label: '1 BR', value: '1BR' },{ label: '2 BR', value: '2BR' },{ label: '3 BR', value: '3BR' },{ label: '4 BR', value: '4BR' }],
+  price: [{ label: 'Under 50K', value: '0-50000' },{ label: '50K - 80K', value: '50000-80000' },{ label: '80K - 120K', value: '80000-120000' },{ label: '120K+', value: '120000-999999' }],
+  area: [{ label: 'Under 500 sqft', value: '0-500' },{ label: '500 - 800 sqft', value: '500-800' },{ label: '800 - 1200 sqft', value: '800-1200' },{ label: '1200+ sqft', value: '1200-99999' }]
+};
+
+function toggleFilter(name) {
+  const dropdown = document.getElementById('filter-dropdown');
+  if (openFilter === name) { dropdown.classList.remove('open'); openFilter = null; return; }
+  openFilter = name;
+  const opts = filterOptions[name];
+  dropdown.innerHTML = `<div class="options">${opts.map(o => `<div class="option ${activeFilters[name] === o.value ? 'selected' : ''}" onclick="selectFilter('${name}','${o.value}')">${o.label}</div>`).join('')}${activeFilters[name] ? `<div class="option" onclick="clearFilter('${name}')" style="color:var(--text-secondary)">Clear</div>` : ''}</div>`;
+  dropdown.classList.add('open');
+}
+function selectFilter(name, value) {
+  activeFilters[name] = value;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', activeFilters[c.dataset.filter] !== null));
+  document.getElementById('filter-dropdown').classList.remove('open'); openFilter = null; renderListings();
+}
+function clearFilter(name) {
+  activeFilters[name] = null;
+  document.querySelector(`.filter-chip[data-filter="${name}"]`).classList.remove('active');
+  document.getElementById('filter-dropdown').classList.remove('open'); openFilter = null; renderListings();
+}
+function getFilteredUnits() {
+  return currentProperty.units.filter(u => {
+    if (activeFilters.bedrooms && u.unitSubType !== activeFilters.bedrooms) return false;
+    if (activeFilters.price) { const [min, max] = activeFilters.price.split('-').map(Number); const rent = Math.min(...u.paymentPlans.map(p => p.annualRent)); if (rent < min || rent > max) return false; }
+    if (activeFilters.area) { const [min, max] = activeFilters.area.split('-').map(Number); if (parseFloat(u.areaSQFT) < min || parseFloat(u.areaSQFT) > max) return false; }
+    return true;
+  });
+}
+
+// ============ RENDER LISTINGS ============
+function renderListings() {
+  const units = getFilteredUnits();
+  document.getElementById('listings-count').textContent = `${units.length} unit${units.length !== 1 ? 's' : ''} available`;
+  document.getElementById('listings-title').textContent = currentProperty.buildingName;
+  const grid = document.getElementById('listings-grid');
+  grid.innerHTML = units.map((unit, idx) => {
+    const photos = unit.media.filter(m => m.mediaType === 'Photo');
+    const minRent = Math.min(...unit.paymentPlans.map(p => p.annualRent));
+    const bedroomLabel = unit.unitSubType === 'Studio' ? 'Studio' : unit.unitSubType;
+    return `<div class="listing-card" onclick="showUnitDetail('${unit.unitCode}')">
+      <div class="listing-image-container">
+        <div class="listing-image-scroll" id="scroll-${idx}" style="transform:translateX(0)">${photos.map(p => `<img src="${p.url}" alt="${unit.unitSubType}" loading="lazy">`).join('')}</div>
+        <div class="listing-badge">Available</div>
+        ${photos.length > 1 ? `<div class="image-dots">${photos.map((_, i) => `<div class="dot ${i === 0 ? 'active' : ''}"></div>`).join('')}</div>` : ''}
+      </div>
+      <div class="listing-info">
+        <div class="type">${bedroomLabel} · ${unit.unitType}</div>
+        <h3>Unit ${unit.unitNumber}, Floor ${unit.floorNumber}</h3>
+        <div class="location">${currentProperty.addressLine1}, ${currentProperty.addressLine2}</div>
+        <div class="listing-price">AED ${minRent.toLocaleString()} <span style="font-size:13px;font-weight:400;color:var(--text-secondary)">/year</span></div>
+        <div class="listing-price-sub">Starting from ${unit.paymentPlans[0].numberOfInstallments} payment${unit.paymentPlans[0].numberOfInstallments > 1 ? 's' : ''} / year</div>
+        <div class="listing-attrs">
+          <div class="attr"><span>🛏</span> ${bedroomLabel}</div>
+          <div class="attr"><span>📐</span> ${parseFloat(unit.areaSQFT).toLocaleString()} sqft</div>
+          ${unit.balconySize ? `<div class="attr"><span>🌇</span> Balcony</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  units.forEach((unit, idx) => {
+    const photos = unit.media.filter(m => m.mediaType === 'Photo');
+    if (photos.length <= 1) return;
+    const el = document.getElementById(`scroll-${idx}`); if (!el) return;
+    let startX = 0, currentImg = 0;
+    el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; e.stopPropagation(); }, { passive: true });
+    el.addEventListener('touchend', e => { const diff = startX - e.changedTouches[0].clientX; if (Math.abs(diff) > 40) { currentImg = Math.max(0, Math.min(photos.length - 1, currentImg + (diff > 0 ? 1 : -1))); el.style.transform = `translateX(-${currentImg * 100}%)`; el.parentElement.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === currentImg)); } e.stopPropagation(); }, { passive: true });
+  });
+}
+
+// ============ UNIT DETAIL ============
+function showUnitDetail(unitCode) {
+  const unit = currentProperty.units.find(u => u.unitCode === unitCode);
+  if (!unit) return;
+  currentUnit = unit; carouselIndex = 0;
+  const photos = unit.media.filter(m => m.mediaType === 'Photo');
+  const floorplan = unit.media.find(m => m.mediaType === 'Floorplan');
+  const virtualTour = unit.media.find(m => m.mediaType === 'Virtual Tour Link');
+  const minRent = Math.min(...unit.paymentPlans.map(p => p.annualRent));
+  const bedroomLabel = unit.unitSubType === 'Studio' ? 'Studio' : unit.unitSubType;
+  const track = document.getElementById('carousel-track');
+  track.innerHTML = photos.map(p => `<img src="${p.url}" alt="Unit photo" loading="lazy">`).join('');
+  track.style.transform = 'translateX(0)';
+  document.getElementById('carousel-counter').textContent = `1 / ${photos.length}`;
+  document.getElementById('carousel-nav').innerHTML = photos.map((_, i) => `<div class="dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></div>`).join('');
+  const content = document.getElementById('detail-content');
+  content.innerHTML = `
+    <div class="detail-header">
+      <span class="type-badge">${bedroomLabel} · ${unit.unitType}</span>
+      <h1>Unit ${unit.unitNumber}, Floor ${unit.floorNumber}</h1>
+      <div class="address">${currentProperty.addressLine1}, ${currentProperty.addressLine2}, ${currentProperty.emirates}</div>
+      <div class="price">AED ${minRent.toLocaleString()} <span class="price-note">/year (starting from)</span></div>
+    </div>
+    <div class="detail-quick-stats">
+      <div class="quick-stat"><div class="icon">🛏</div><div class="value">${bedroomLabel}</div><div class="label">Bedrooms</div></div>
+      <div class="quick-stat"><div class="icon">📐</div><div class="value">${parseFloat(unit.areaSQFT).toLocaleString()}</div><div class="label">Sq Ft</div></div>
+      <div class="quick-stat"><div class="icon">🌇</div><div class="value">${unit.balconySize || '—'}</div><div class="label">Balcony (sqft)</div></div>
+    </div>
+    <div class="detail-section"><h3>About This Unit</h3><p>${unit.unitDescription}</p></div>
+    ${floorplan ? `<div class="detail-section"><h3>Floor Plan</h3><div class="floorplan-viewer"><img src="${floorplan.url}" alt="Floor Plan" onclick="openFloorplan('${floorplan.url}', '${bedroomLabel} Floor Plan — Unit ${unit.unitNumber}')"><div class="actions"><button onclick="openFloorplan('${floorplan.url}', '${bedroomLabel} Floor Plan — Unit ${unit.unitNumber}')">🔍 Expand & Zoom</button></div></div></div>` : ''}
+    ${virtualTour ? `<div class="detail-section"><button class="virtual-tour-btn" onclick="window.open('${virtualTour.url}','_blank')">🔄 Take a Virtual Tour</button></div>` : ''}
+    <div class="detail-section"><h3>Payment Plans</h3><div class="plans-list">${unit.paymentPlans.map(p => `<div class="plan-card"><div class="installments">${p.numberOfInstallments} Payment${p.numberOfInstallments > 1 ? 's' : ''} / Year</div><div class="plan-details"><div class="rent">AED ${p.annualRent.toLocaleString()}</div><div class="deposit">Deposit: AED ${p.securityDeposit.toLocaleString()}</div></div></div>`).join('')}</div></div>
+    <div class="detail-section"><h3>About ${currentProperty.buildingName}</h3><p>${currentProperty.propertyDescription}</p></div>`;
+  showPage('page-detail');
+}
+
+// ============ CAROUSEL ============
+function moveCarousel(dir) { if (!currentUnit) return; const photos = currentUnit.media.filter(m => m.mediaType === 'Photo'); carouselIndex = Math.max(0, Math.min(photos.length - 1, carouselIndex + dir)); updateCarousel(photos.length); }
+function goToSlide(idx) { carouselIndex = idx; updateCarousel(currentUnit.media.filter(m => m.mediaType === 'Photo').length); }
+function updateCarousel(total) { document.getElementById('carousel-track').style.transform = `translateX(-${carouselIndex * 100}%)`; document.getElementById('carousel-counter').textContent = `${carouselIndex + 1} / ${total}`; document.querySelectorAll('#carousel-nav .dot').forEach((d, i) => d.classList.toggle('active', i === carouselIndex)); }
+(function() { const c = document.getElementById('detail-carousel'); let sX = 0; c.addEventListener('touchstart', e => { sX = e.touches[0].clientX; }, { passive: true }); c.addEventListener('touchend', e => { const d = sX - e.changedTouches[0].clientX; if (Math.abs(d) > 40) moveCarousel(d > 0 ? 1 : -1); }, { passive: true }); })();
+
+// ============ SHARE ============
+function openShareSheet() { document.getElementById('share-sheet').classList.add('open'); document.getElementById('share-backdrop').classList.add('open'); }
+function closeShareSheet() { document.getElementById('share-sheet').classList.remove('open'); document.getElementById('share-backdrop').classList.remove('open'); }
+function shareTo(method) {
+  if (!currentUnit) return;
+  const bedroomLabel = currentUnit.unitSubType === 'Studio' ? 'Studio' : currentUnit.unitSubType;
+  const minRent = Math.min(...currentUnit.paymentPlans.map(p => p.annualRent));
+  const text = `Check out this ${bedroomLabel} at ${currentProperty.buildingName}, ${currentProperty.addressLine2}!\n\nUnit ${currentUnit.unitNumber}, Floor ${currentUnit.floorNumber}\n${parseFloat(currentUnit.areaSQFT).toLocaleString()} sqft\nFrom AED ${minRent.toLocaleString()}/year\n\nAl Ghurair Properties`;
+  if (method === 'whatsapp') window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  else if (method === 'email') window.open(`mailto:?subject=${encodeURIComponent(`${bedroomLabel} at ${currentProperty.buildingName}`)}&body=${encodeURIComponent(text)}`, '_blank');
+  else if (method === 'copy') { navigator.clipboard?.writeText(text); alert('Listing details copied!'); }
+  else if (method === 'pdf') { alert('PDF generation would be triggered here. The listing details would be compiled into a branded PDF for sharing.'); }
+  closeShareSheet();
+}
+
+// ============ BOOKING FORM ============
+function showBookingForm(unit, type) {
+  bookingReturnPage = unit ? 'page-detail' : 'page-welcome';
+  requestType = type || 'viewing';
+  document.getElementById('booking-back-btn').onclick = () => showPage(bookingReturnPage);
+  if (unit) {
+    currentUnit = unit;
+    const img = currentUnit.media.find(m => m.isMarketingPhoto) || currentUnit.media[0];
+    const minRent = Math.min(...currentUnit.paymentPlans.map(p => p.annualRent));
+    document.getElementById('booking-unit-summary').innerHTML = `<div class="form-unit-summary"><img src="${img.url}" alt="Unit"><div class="info"><h4>Unit ${currentUnit.unitNumber}, Floor ${currentUnit.floorNumber}</h4><p>${currentUnit.unitSubType} · ${parseFloat(currentUnit.areaSQFT).toLocaleString()} sqft</p><div class="price">AED ${minRent.toLocaleString()}/yr</div></div></div>`;
+    document.getElementById('booking-title').textContent = type === 'booking' ? 'Book Unit' : 'Schedule Viewing';
+    const planSelect = document.getElementById('form-plan');
+    planSelect.innerHTML = currentUnit.paymentPlans.map(p => `<option value="${p.numberOfInstallments}">${p.numberOfInstallments} payment${p.numberOfInstallments > 1 ? 's' : ''}/yr — AED ${p.annualRent.toLocaleString()} (Deposit: AED ${p.securityDeposit.toLocaleString()})</option>`).join('');
+  } else { document.getElementById('booking-unit-summary').innerHTML = ''; document.getElementById('booking-title').textContent = 'General Inquiry'; }
+  selectedIdMethod = null;
+  document.querySelectorAll('.id-option').forEach(o => o.classList.remove('selected'));
+  document.getElementById('file-upload-area').classList.remove('visible');
+  document.getElementById('file-name-display').textContent = '';
+  setRequestType(type || 'viewing');
+  showPage('page-booking');
+}
+function setRequestType(type) {
+  requestType = type;
+  document.querySelectorAll('.type-option').forEach(o => o.classList.toggle('active', o.dataset.type === type));
+  document.getElementById('viewing-fields').style.display = type === 'viewing' ? 'block' : 'none';
+  document.getElementById('booking-fields').style.display = type === 'booking' ? 'block' : 'none';
+  document.getElementById('id-section').style.display = type === 'booking' ? 'block' : 'none';
+  document.getElementById('submit-btn').textContent = type === 'viewing' ? 'Schedule Viewing' : 'Review & Submit';
+}
+
+// ============ EMIRATES ID ============
+function selectIdMethod(method) {
+  selectedIdMethod = method;
+  document.querySelectorAll('.id-option').forEach(o => o.classList.toggle('selected', o.dataset.method === method));
+  document.getElementById('file-upload-area').classList.toggle('visible', method === 'upload');
+  if (method === 'uaepass') document.getElementById('file-name-display').textContent = '';
+}
+function handleFileSelect(input) {
+  if (input.files.length > 0) document.getElementById('file-name-display').textContent = '✓ ' + input.files[0].name;
+}
+
+// ============ SUBMIT / SUMMARY ============
+function submitForm() {
+  const name = document.getElementById('form-name').value;
+  const email = document.getElementById('form-email').value;
+  const phone = document.getElementById('form-phone').value;
+  if (!name || !email || !phone) { alert('Please fill in all required fields.'); return; }
+
+  if (requestType === 'viewing') {
+    const modal = document.getElementById('success-modal');
+    document.getElementById('modal-title').textContent = 'Viewing Scheduled!';
+    document.getElementById('modal-message').textContent = `Thanks ${name}! We've received your viewing request. Our team will contact you at ${phone} to confirm the date and time.`;
+    modal.classList.add('open');
+    return;
+  }
+
+  if (requestType === 'booking' && !selectedIdMethod) { alert('Please select an Emirates ID verification method.'); return; }
+
+  // Show summary page for booking requests
+  const planSelect = document.getElementById('form-plan');
+  const selectedPlan = currentUnit.paymentPlans.find(p => p.numberOfInstallments == planSelect.value);
+  const bedroomLabel = currentUnit.unitSubType === 'Studio' ? 'Studio' : currentUnit.unitSubType;
+  document.getElementById('summary-details').innerHTML = `
+    <div class="summary-card"><h4>Unit Details</h4>
+      <div class="summary-row"><span class="lbl">Unit</span><span class="val">${bedroomLabel} — Unit ${currentUnit.unitNumber}, Floor ${currentUnit.floorNumber}</span></div>
+      <div class="summary-row"><span class="lbl">Building</span><span class="val">${currentProperty.buildingName}</span></div>
+      <div class="summary-row"><span class="lbl">Area</span><span class="val">${parseFloat(currentUnit.areaSQFT).toLocaleString()} sqft</span></div>
+    </div>
+    <div class="summary-card"><h4>Payment Plan</h4>
+      <div class="summary-row"><span class="lbl">Annual Rent</span><span class="val">AED ${selectedPlan.annualRent.toLocaleString()}</span></div>
+      <div class="summary-row"><span class="lbl">Payments</span><span class="val">${selectedPlan.numberOfInstallments} / year</span></div>
+      <div class="summary-row"><span class="lbl">Security Deposit</span><span class="val">AED ${selectedPlan.securityDeposit.toLocaleString()}</span></div>
+    </div>
+    <div class="summary-card"><h4>Your Information</h4>
+      <div class="summary-row"><span class="lbl">Name</span><span class="val">${name}</span></div>
+      <div class="summary-row"><span class="lbl">Email</span><span class="val">${email}</span></div>
+      <div class="summary-row"><span class="lbl">Phone</span><span class="val">${phone}</span></div>
+      <div class="summary-row"><span class="lbl">Emirates ID</span><span class="val">${selectedIdMethod === 'uaepass' ? 'Via UAE Pass' : 'Uploaded'}</span></div>
+    </div>`;
+  showPage('page-summary');
+}
+
+function confirmBooking() {
+  const name = document.getElementById('form-name').value;
+  const email = document.getElementById('form-email').value;
+  const modal = document.getElementById('success-modal');
+  document.getElementById('modal-title').textContent = 'Booking Request Submitted!';
+  document.getElementById('modal-message').textContent = `Thanks ${name}! Your booking request has been submitted. A leasing consultant will review your application and reach out to you at ${email} within 24 hours.`;
+  modal.classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('success-modal').classList.remove('open');
+  document.getElementById('form-name').value = ''; document.getElementById('form-email').value = '';
+  document.getElementById('form-phone').value = ''; document.getElementById('form-notes').value = '';
+  showPage('page-listings');
+}
+
+// ============ PROPERTIES PAGE ============
+function getFilteredProperties() {
+  return propertyData.filter(prop => {
+    if (communityFilter && !prop.community.toLowerCase().includes(communityFilter.toLowerCase())) return false;
+    if (propertyTypeFilter !== 'all') {
+      const hasType = prop.units.some(u => u.unitType === propertyTypeFilter);
+      if (!hasType) return false;
+    }
+    return true;
+  });
+}
+
+function renderProperties() {
+  const props = getFilteredProperties();
+  const grid = document.getElementById('properties-grid');
+  grid.innerHTML = props.map(prop => {
+    const img = prop.units[0]?.media?.find(m => m.isMarketingPhoto) || prop.units[0]?.media?.[0];
+    const types = [...new Set(prop.units.map(u => {
+      if (u.unitSubType === 'Studio') return 'Studios';
+      return u.unitSubType.replace('BR', ' Beds');
+    }))];
+    const typeChips = types.map(t => `<span class="unit-type-chip">${t}</span>`).join('');
+    return `<div class="property-card" onclick="switchProperty('${prop.propertyReferenceNumber}')">
+      ${prop.hasMonthlyPayments ? '<div class="promo-stamp">Monthly Payments</div>' : ''}
+      ${img ? `<img src="${img.url}" alt="${prop.buildingName}" loading="lazy">` : ''}
+      <div class="info">
+        <h4>${prop.buildingName}</h4>
+        <p>${prop.community}, ${prop.emirates}</p>
+        <div class="units-count">${prop.units.length} unit${prop.units.length !== 1 ? 's' : ''} available</div>
+        <div class="unit-types">${typeChips}</div>
+      </div>
+    </div>`;
+  }).join('');
+  if (props.length === 0) grid.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:40px 0;">No properties match your search.</p>';
+}
+
+function switchProperty(refNum) {
+  currentProperty = propertyData.find(p => p.propertyReferenceNumber === refNum);
+  activeFilters = { bedrooms: null, price: null, area: null };
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('welcome-building-name').textContent = currentProperty.buildingName;
+  document.getElementById('welcome-building-location').textContent = `${currentProperty.addressLine2}, ${currentProperty.emirates}`;
+  document.getElementById('welcome-description').textContent = currentProperty.propertyDescription;
+  const subtypes = [...new Set(currentProperty.units.map(u => u.unitSubType))];
+  document.getElementById('stat-units').textContent = currentProperty.units.length;
+  document.getElementById('stat-types').textContent = subtypes.length;
+  document.getElementById('stat-floors').textContent = [...new Set(currentProperty.units.map(u => u.floorNumber))].length;
+  showPage('page-welcome');
+}
+
+// ============ COMMUNITY SEARCH ============
+function onCommunitySearch(val) {
+  const suggestions = document.getElementById('search-suggestions');
+  if (!val.trim()) { communityFilter = ''; suggestions.classList.remove('open'); renderProperties(); return; }
+  const communities = [...new Set(propertyData.map(p => p.community))];
+  const matches = communities.filter(c => c.toLowerCase().includes(val.toLowerCase()));
+  if (matches.length > 0) {
+    suggestions.innerHTML = matches.map(c => `<div class="search-suggestion" onclick="selectCommunity('${c}')"><span class="loc-icon">📍</span>${c}</div>`).join('');
+    suggestions.classList.add('open');
+  } else { suggestions.classList.remove('open'); }
+  communityFilter = val; renderProperties();
+}
+function selectCommunity(name) {
+  document.getElementById('community-search').value = name;
+  communityFilter = name;
+  document.getElementById('search-suggestions').classList.remove('open');
+  renderProperties();
+}
+function setPropertyType(type) {
+  propertyTypeFilter = type;
+  document.querySelectorAll('.type-toggle').forEach(t => t.classList.toggle('active', t.dataset.type === type));
+  renderProperties();
+}
+
+// ============ FLOORPLAN VIEWER ============
+let fpZoom = 1;
+function openFloorplan(url, label) { fpZoom = 1; const img = document.getElementById('fp-fullscreen-img'); img.src = url; img.style.transform = 'scale(1)'; document.getElementById('fp-label').textContent = label || 'Floor Plan'; document.getElementById('floorplan-overlay').classList.add('open'); document.body.style.overflow = 'hidden'; }
+function closeFloorplan() { document.getElementById('floorplan-overlay').classList.remove('open'); document.body.style.overflow = ''; }
+function zoomFloorplan(dir) { fpZoom = Math.max(0.5, Math.min(4, fpZoom + dir * 0.5)); document.getElementById('fp-fullscreen-img').style.transform = `scale(${fpZoom})`; }
+function resetZoomFloorplan() { fpZoom = 1; document.getElementById('fp-fullscreen-img').style.transform = 'scale(1)'; }
+(function() { const c = document.querySelector('.floorplan-overlay .img-container'); let ld = 0; c.addEventListener('touchstart', e => { if (e.touches.length === 2) ld = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }, { passive: true }); c.addEventListener('touchmove', e => { if (e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); const delta = d - ld; if (Math.abs(delta) > 8) { fpZoom = Math.max(0.5, Math.min(4, fpZoom + (delta > 0 ? 0.1 : -0.1))); document.getElementById('fp-fullscreen-img').style.transform = `scale(${fpZoom})`; ld = d; } } }, { passive: true }); })();
+
+// ============ CHAT ============
+function openChat() { document.getElementById('chat-modal').classList.add('open'); document.getElementById('chat-tooltip').style.display = 'none'; }
+setTimeout(() => { document.getElementById('chat-tooltip').style.display = 'block'; setTimeout(() => { document.getElementById('chat-tooltip').style.display = 'none'; }, 4000); }, 2000);
+
+// ============ INIT ============
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('stat-units').textContent = currentProperty.units.length;
+  document.getElementById('stat-types').textContent = [...new Set(currentProperty.units.map(u => u.unitSubType))].length;
+  document.getElementById('stat-floors').textContent = [...new Set(currentProperty.units.map(u => u.floorNumber))].length;
+  document.getElementById('welcome-description').textContent = currentProperty.propertyDescription;
+});
+document.addEventListener('click', e => { const dd = document.getElementById('filter-dropdown'); if (openFilter && !e.target.closest('.filter-container')) { dd.classList.remove('open'); openFilter = null; } });
+</script>
+</body>
+</html>
