@@ -87,7 +87,12 @@ function normalizeBedrooms(v) {
 
 async function readSheet(file) {
   const buf = await file.arrayBuffer();
-  const wb  = XLSX.read(buf, { cellDates: true });
+  // Read date cells as Excel serial numbers, NOT cellDates. cellDates would
+  // build Date objects anchored to the uploader's local timezone, which the
+  // getUTC* formatters below then misread — shifting month-boundary payments
+  // into the wrong month depending on where the upload happened. Serials go
+  // through toDate()'s Date.UTC path, giving the same result in any timezone.
+  const wb  = XLSX.read(buf);
   const ws  = wb.Sheets[wb.SheetNames[0]];
   return XLSX.utils.sheet_to_json(ws, { defval: '' });
 }
