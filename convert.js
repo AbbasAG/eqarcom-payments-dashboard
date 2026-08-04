@@ -85,6 +85,32 @@ function normalizeUnitType(v) {
   return s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
 }
 
+// Bedroom / unit-subtype information is labelled differently by each source
+// system. Tried in order; the first non-empty match wins. When none match, the
+// Management Overview shows the subtype as "Unknown", which is the signal that
+// a new variant needs adding here.
+const BEDROOM_HEADERS = [
+  'Bedrooms', 'Bedroom', 'Beds', 'Bed', 'Bed Rooms', 'BR', 'B/R',
+  'No of Bedrooms', 'No. of Bedrooms', 'Nos of Bedrooms', 'Number of Bedrooms',
+  'Number Of Beds', 'No of Beds', 'No. of Beds', 'Nos of Beds', 'Number of Bed',
+  'Unit Details', 'Unit Detail', 'Unit Description',
+  'Unit Subtype', 'Unit Sub Type', 'Unit Sub-Type', 'Subtype', 'Sub Type', 'Sub-Type',
+  'Configuration', 'Unit Configuration', 'Layout', 'Unit Layout', 'Type Details',
+];
+
+// Last-resort fallback: the first populated column whose heading mentions
+// "bed" at all. Exact aliases are tried first so behaviour stays predictable;
+// this only catches spellings nobody anticipated.
+function pickBedroomsLoose(row) {
+  for (const k of Object.keys(row)) {
+    if (/bed/i.test(String(k))) {
+      const v = row[k];
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+  }
+  return '';
+}
+
 function normalizeBedrooms(v) {
   if (v == null || v === '') return '';
   const s = String(v).trim();
@@ -252,7 +278,7 @@ async function buildOverviewPayload(unitsFile, leasesFile) {
       unit_type:     unitType,
       unit_code:     str(pick(r, 'Unit Number', 'Unit Code', 'Unit No')),
       property:      str(pick(r, 'Property', 'Property Name')),
-      bedrooms:      normalizeBedrooms(pick(r, 'Bedrooms', 'Unit Details', 'Bed')),
+      bedrooms:      normalizeBedrooms(pick(r, ...BEDROOM_HEADERS) || pickBedroomsLoose(r)),
       built_up_area: num(pick(r, 'Built Up Area', 'BUA', 'Built-Up Area')),
       approved_rate: num(pick(r, 'Approved Rate', 'Rate', 'Approved Rent')),
       usage_type:    usageTypeFor(unitType),
@@ -276,7 +302,7 @@ async function buildOverviewPayload(unitsFile, leasesFile) {
       start_date:       fmtISODate(pick(r, 'Start Date', 'Contract Start Date', 'Lease Start Date')),
       end_date:         fmtISODate(pick(r, 'End Date', 'Contract End Date', 'Lease End Date')),
       nationality:      str(pick(r, 'Nationality')),
-      bedrooms:         u.bedrooms || normalizeBedrooms(pick(r, 'Bedrooms')),
+      bedrooms:         u.bedrooms || normalizeBedrooms(pick(r, ...BEDROOM_HEADERS) || pickBedroomsLoose(r)),
       usage_type:       u.usage_type || usageTypeFor(pick(r, 'Unit Type')),
       unit_type:        u.unit_type || normalizeUnitType(pick(r, 'Unit Type')),
       owner:            str(pick(r, 'Owner', 'Landlord', 'Owner Name')),
