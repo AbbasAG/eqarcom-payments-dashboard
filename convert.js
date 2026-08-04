@@ -223,12 +223,18 @@ export async function convertTickets(xlsxFile) {
 //                      the old single-org path keeps working; not used by the
 //                      admin UI any more.
 // ──────────────────────────────────────────────────────────────────
+// Residential is a closed list of three unit types; everything else that has
+// a unit type at all is Commercial. Previously unlisted types fell into an
+// "Other" bucket that was excluded from both sub-totals, so a single unusual
+// unit type made the KPI cards stop reconciling with the headline total.
+// A blank Unit Type stays unclassified — there is nothing to classify it on,
+// and the overview surfaces it explicitly rather than guessing.
+const RESIDENTIAL_UNIT_TYPES = /apartment|villa|penthouse/;
+
 function usageTypeFor(unitType) {
   const t = String(unitType || '').trim().toLowerCase();
   if (!t) return '';
-  if (/apartment|villa/.test(t))         return 'Residential';
-  if (/office|retail|building|shop|warehouse/.test(t)) return 'Commercial';
-  return 'Other';
+  return RESIDENTIAL_UNIT_TYPES.test(t) ? 'Residential' : 'Commercial';
 }
 
 async function buildOverviewPayload(unitsFile, leasesFile) {

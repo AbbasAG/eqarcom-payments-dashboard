@@ -271,8 +271,20 @@ th.num { text-align: right; }
 <script>
 const TODAY = new Date();
 const MS_DAY = 86400000;
-const resUnitTypes = new Set(['Apartment', 'Villa']);
-const comUnitTypes = new Set(['Retail', 'Office', 'Building', 'Shop']);
+// Residential is a closed list of three unit types; anything else that has a
+// unit type at all counts as Commercial. Classifying from unit_type on read
+// (rather than trusting the stored usage_type) means data uploaded under the
+// older rules is classified correctly without needing a re-upload.
+const RESIDENTIAL_UNIT_TYPES = /apartment|villa|penthouse/;
+
+function usageOf(x) {
+  const t = String((x && x.unit_type) || '').trim().toLowerCase();
+  if (t) return RESIDENTIAL_UNIT_TYPES.test(t) ? 'Residential' : 'Commercial';
+  // No unit type to go on — fall back to whatever was stored.
+  const u = String((x && x.usage_type) || '').trim();
+  if (u === 'Residential') return 'Residential';
+  return u ? 'Commercial' : '';
+}
 
 function daysDiff(dateStr) {
   return Math.floor((new Date(dateStr) - TODAY) / MS_DAY);
@@ -379,8 +391,8 @@ function getFilteredData() {
     leases = leases.filter(l => l.property === filters.property);
   }
   if (filters.usage) {
-    units = units.filter(u => u.usage_type === filters.usage);
-    leases = leases.filter(l => l.usage_type === filters.usage);
+    units = units.filter(u => usageOf(u) === filters.usage);
+    leases = leases.filter(l => usageOf(l) === filters.usage);
   }
   if (filters.owner) {
     leases = leases.filter(l => l.owner === filters.owner);
@@ -400,22 +412,25 @@ function render() {
 
   // --- KPI Row ---
   const totalUnits = units.length;
-  const resUnits = units.filter(u => u.usage_type === 'Residential').length;
-  const comUnits = units.filter(u => u.usage_type === 'Commercial').length;
+  const resUnits = units.filter(u => usageOf(u) === 'Residential').length;
+  const comUnits = units.filter(u => usageOf(u) === 'Commercial').length;
+  // Units with no Unit Type at all can't be classified. Surfaced explicitly so
+  // the sub-counts always reconcile with Total Units.
+  const otherUnits = totalUnits - resUnits - comUnits;
 
   const totalRent = activeLeases.reduce((s, l) => s + (l.annual_rent || 0), 0);
-  const resRent = activeLeases.filter(l => l.usage_type === 'Residential').reduce((s, l) => s + (l.annual_rent || 0), 0);
-  const comRent = activeLeases.filter(l => l.usage_type === 'Commercial').reduce((s, l) => s + (l.annual_rent || 0), 0);
+  const resRent = activeLeases.filter(l => usageOf(l) === 'Residential').reduce((s, l) => s + (l.annual_rent || 0), 0);
+  const comRent = activeLeases.filter(l => usageOf(l) === 'Commercial').reduce((s, l) => s + (l.annual_rent || 0), 0);
 
   const totalArea = activeLeases.reduce((s, l) => s + (l.built_up_area || 0), 0);
-  const resArea = activeLeases.filter(l => l.usage_type === 'Residential').reduce((s, l) => s + (l.built_up_area || 0), 0);
-  const comArea = activeLeases.filter(l => l.usage_type === 'Commercial').reduce((s, l) => s + (l.built_up_area || 0), 0);
+  const resArea = activeLeases.filter(l => usageOf(l) === 'Residential').reduce((s, l) => s + (l.built_up_area || 0), 0);
+  const comArea = activeLeases.filter(l => usageOf(l) === 'Commercial').reduce((s, l) => s + (l.built_up_area || 0), 0);
 
   const occupiedUnits = units.filter(u => u.status === 'Occupied').length;
   const occPct = pct(occupiedUnits, totalUnits);
-  const resOcc = units.filter(u => u.usage_type === 'Residential');
+  const resOcc = units.filter(u => usageOf(u) === 'Residential');
   const resOccupied = resOcc.filter(u => u.status === 'Occupied').length;
-  const comOcc = units.filter(u => u.usage_type === 'Commercial');
+  const comOcc = units.filter(u => usageOf(u) === 'Commercial');
   const comOccupied = comOcc.filter(u => u.status === 'Occupied').length;
 
   html += `<div class="kpi-row">
@@ -425,6 +440,7 @@ function render() {
       <div class="kpi-sub">
         <div class="kpi-sub-item res"><span>${fmt(resUnits)}</span> Residential</div>
         <div class="kpi-sub-item com"><span>${fmt(comUnits)}</span> Commercial</div>
+        ${otherUnits > 0 ? `<div class="kpi-sub-item" style="color:#f87171"><span style="color:#f87171">${fmt(otherUnits)}</span> No Unit Type</div>` : ''}
       </div>
     </div>
     <div class="kpi-card">
@@ -475,7 +491,7 @@ function render() {
     return h;
   }
 
-  const resLeased = activeLeases.filter(l => l.usage_type === 'Residential');
+  const resLeased = activeLeases.filter(l => usageOf(l) === 'Residential');
   const resUTG = {};
   resLeased.forEach(l => { const ut = normUnitType(l.unit_type) || 'Other'; if (!resUTG[ut]) resUTG[ut] = []; resUTG[ut].push(l); });
   html += `<div class="charts-row">`;
@@ -484,7 +500,7 @@ function render() {
   });
   html += `</div>`;
 
-  const comLeased = activeLeases.filter(l => l.usage_type === 'Commercial');
+  const comLeased = activeLeases.filter(l => usageOf(l) === 'Commercial');
   const comUTG = {};
   comLeased.forEach(l => { const ut = normUnitType(l.unit_type) || 'Other'; if (!comUTG[ut]) comUTG[ut] = []; comUTG[ut].push(l); });
   html += `<div class="charts-row">`;
@@ -499,13 +515,14 @@ function render() {
     if (!propMap[u.property]) propMap[u.property] = { total:0, occupied:0, resTot:0, resOcc:0, comTot:0, comOcc:0, resRent:0, comRent:0 };
     propMap[u.property].total++;
     if (u.status === 'Occupied') propMap[u.property].occupied++;
-    if (u.usage_type === 'Residential') { propMap[u.property].resTot++; if (u.status === 'Occupied') propMap[u.property].resOcc++; }
-    else { propMap[u.property].comTot++; if (u.status === 'Occupied') propMap[u.property].comOcc++; }
+    const usage = usageOf(u);
+    if (usage === 'Residential') { propMap[u.property].resTot++; if (u.status === 'Occupied') propMap[u.property].resOcc++; }
+    else if (usage === 'Commercial') { propMap[u.property].comTot++; if (u.status === 'Occupied') propMap[u.property].comOcc++; }
   });
   activeLeases.forEach(l => {
     if (propMap[l.property]) {
-      if (l.usage_type === 'Residential') propMap[l.property].resRent += (l.annual_rent || 0);
-      else propMap[l.property].comRent += (l.annual_rent || 0);
+      if (usageOf(l) === 'Residential') propMap[l.property].resRent += (l.annual_rent || 0);
+      else if (usageOf(l) === 'Commercial') propMap[l.property].comRent += (l.annual_rent || 0);
     }
   });
 
@@ -528,8 +545,7 @@ function render() {
   ['Residential', 'Commercial'].forEach(uType => {
     const badge = uType === 'Residential' ? 'badge-res' : 'badge-com';
     const sectionId = uType.toLowerCase();
-    const targetTypes = uType === 'Residential' ? resUnitTypes : comUnitTypes;
-    const filtered = leases.filter(l => targetTypes.has(normUnitType(l.unit_type)));
+    const filtered = leases.filter(l => usageOf(l) === uType);
 
     const propLeases = {};
     filtered.forEach(l => { if (!propLeases[l.property]) propLeases[l.property] = []; propLeases[l.property].push(l); });
@@ -591,8 +607,8 @@ function render() {
 // Drill-down
 window.showDrill = function(type, property, bucket) {
   const { leases } = getFilteredData();
-  const targetTypes = type === 'residential' ? resUnitTypes : comUnitTypes;
-  let filtered = leases.filter(l => targetTypes.has(normUnitType(l.unit_type)));
+  const wantUsage = type === 'residential' ? 'Residential' : 'Commercial';
+  let filtered = leases.filter(l => usageOf(l) === wantUsage);
   if (property !== 'ALL') filtered = filtered.filter(l => l.property === property);
 
   let bucketLabel = '';
@@ -762,10 +778,10 @@ function generatePDF() {
   const ownerUnits = OVERVIEW_DATA.units.filter(u => props.includes(u.property));
 
   const totalRent = active.reduce((s, l) => s + (l.annual_rent || 0), 0);
-  const resActive = active.filter(l => l.usage_type === 'Residential');
-  const comActive = active.filter(l => l.usage_type === 'Commercial');
-  const resUnits = ownerUnits.filter(u => u.usage_type === 'Residential');
-  const comUnits = ownerUnits.filter(u => u.usage_type === 'Commercial');
+  const resActive = active.filter(l => usageOf(l) === 'Residential');
+  const comActive = active.filter(l => usageOf(l) === 'Commercial');
+  const resUnits = ownerUnits.filter(u => usageOf(u) === 'Residential');
+  const comUnits = ownerUnits.filter(u => usageOf(u) === 'Commercial');
   const occPct = ownerUnits.length ? (active.length / ownerUnits.length * 100) : 0;
 
   active.forEach(l => {
@@ -786,7 +802,7 @@ function generatePDF() {
   // Unit mix with avg rent
   const mixMap = {};
   active.forEach(l => {
-    const bt = l.usage_type === 'Residential' ? normBedroom(l.bedrooms) : (l.bedrooms || normUnitType(l.unit_type) || 'Other');
+    const bt = usageOf(l) === 'Residential' ? normBedroom(l.bedrooms) : (l.bedrooms || normUnitType(l.unit_type) || 'Other');
     if (!mixMap[bt]) mixMap[bt] = { count: 0, rent: 0 };
     mixMap[bt].count++;
     mixMap[bt].rent += (l.annual_rent || 0);
