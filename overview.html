@@ -117,6 +117,10 @@ body:not(.authenticated) .main { visibility: hidden; }
 .kpi-sub-item span { font-weight: 700; }
 .kpi-sub-item.res span { color: #60a5fa; }
 .kpi-sub-item.com span { color: #fbbf24; }
+.kpi-note { font-size: 12px; color: #64748b; margin-top: 10px; padding-top: 9px; border-top: 1px solid #2d4060; line-height: 1.5; }
+.kpi-note span { font-weight: 700; color: #94a3b8; }
+.kpi-note.warn { color: #d19a30; }
+.kpi-note.warn span { color: #fbbf24; }
 
 /* Section */
 .section { background: #1e293b; border: 1px solid #2d4060; border-radius: 12px; overflow: hidden; }
@@ -277,6 +281,17 @@ const MS_DAY = 86400000;
 // older rules is classified correctly without needing a re-upload.
 const RESIDENTIAL_UNIT_TYPES = /apartment|villa|penthouse/;
 
+// A lease counts as "in place" — i.e. the unit is occupied and generating
+// rent — when its status is Active, and also when it is Expired. An expired
+// lease normally means the tenant is still in occupation while a renewal is
+// processed, so excluding it would understate occupied units, rent and area.
+// Statuses such as Terminated / Cancelled / Draft are NOT in place.
+const IN_PLACE_LEASE_STATUSES = new Set(['active', 'expired']);
+
+function isInPlaceLease(l) {
+  return IN_PLACE_LEASE_STATUSES.has(String((l && l.status) || '').trim().toLowerCase());
+}
+
 function usageOf(x) {
   const t = String((x && x.unit_type) || '').trim().toLowerCase();
   if (t) return RESIDENTIAL_UNIT_TYPES.test(t) ? 'Residential' : 'Commercial';
@@ -405,7 +420,7 @@ function getFilteredData() {
 
 function render() {
   const { units, leases } = getFilteredData();
-  const activeLeases = leases.filter(l => l.status === 'Active');
+  const inPlaceLeases = leases.filter(isInPlaceLease);
   const db = document.getElementById('dashboard');
 
   let html = '';
@@ -418,19 +433,45 @@ function render() {
   // the sub-counts always reconcile with Total Units.
   const otherUnits = totalUnits - resUnits - comUnits;
 
-  const totalRent = activeLeases.reduce((s, l) => s + (l.annual_rent || 0), 0);
-  const resRent = activeLeases.filter(l => usageOf(l) === 'Residential').reduce((s, l) => s + (l.annual_rent || 0), 0);
-  const comRent = activeLeases.filter(l => usageOf(l) === 'Commercial').reduce((s, l) => s + (l.annual_rent || 0), 0);
+  const totalRent = inPlaceLeases.reduce((s, l) => s + (l.annual_rent || 0), 0);
+  const resRent = inPlaceLeases.filter(l => usageOf(l) === 'Residential').reduce((s, l) => s + (l.annual_rent || 0), 0);
+  const comRent = inPlaceLeases.filter(l => usageOf(l) === 'Commercial').reduce((s, l) => s + (l.annual_rent || 0), 0);
 
-  const totalArea = activeLeases.reduce((s, l) => s + (l.built_up_area || 0), 0);
-  const resArea = activeLeases.filter(l => usageOf(l) === 'Residential').reduce((s, l) => s + (l.built_up_area || 0), 0);
-  const comArea = activeLeases.filter(l => usageOf(l) === 'Commercial').reduce((s, l) => s + (l.built_up_area || 0), 0);
+  const totalArea = inPlaceLeases.reduce((s, l) => s + (l.built_up_area || 0), 0);
+  const resArea = inPlaceLeases.filter(l => usageOf(l) === 'Residential').reduce((s, l) => s + (l.built_up_area || 0), 0);
+  const comArea = inPlaceLeases.filter(l => usageOf(l) === 'Commercial').reduce((s, l) => s + (l.built_up_area || 0), 0);
 
   const occupiedUnits = units.filter(u => u.status === 'Occupied').length;
   const occPct = pct(occupiedUnits, totalUnits);
   const resOcc = units.filter(u => usageOf(u) === 'Residential');
   const resOccupied = resOcc.filter(u => u.status === 'Occupied').length;
   const comOcc = units.filter(u => usageOf(u) === 'Commercial');
+
+  // Total Units counts rows in the Units extract; every other figure on this
+  // page is built from Active leases. The two disagree whenever a unit has no
+  // in-place lease behind it, so state the reconciliation on the card rather
+  // than leaving it to be inferred by adding up the subtype tiles.
+  const inPlaceLeaseCount = inPlaceLeases.length;
+  const leasedCodes       = new Set(inPlaceLeases.map(l => l.unit_code).filter(Boolean));
+  const unitsWithLease    = units.filter(u => leasedCodes.has(u.unit_code)).length;
+  const unitsWithoutLease = totalUnits - unitsWithLease;
+  const unitCodes         = new Set(units.map(u => u.unit_code).filter(Boolean));
+  const unmatchedLeases   = inPlaceLeases.filter(l => !l.unit_code || !unitCodes.has(l.unit_code)).length;
+
+  let leaseNote;
+  if (totalUnits === 0) {
+    leaseNote = `<span>${fmt(inPlaceLeaseCount)}</span> in-place leases`;
+  } else if (unitsWithoutLease <= 0 && unmatchedLeases <= 0) {
+    leaseNote = `<span>${fmt(inPlaceLeaseCount)}</span> in-place leases &middot; every unit leased`;
+  } else {
+    leaseNote = `<span>${fmt(inPlaceLeaseCount)}</span> in-place leases`;
+    if (unitsWithoutLease > 0) {
+      leaseNote += ` &middot; <span>${fmt(unitsWithoutLease)}</span> of ${fmt(totalUnits)} units with no in-place lease`;
+    }
+    if (unmatchedLeases > 0) {
+      leaseNote += ` &middot; <span>${fmt(unmatchedLeases)}</span> leases with no matching unit`;
+    }
+  }
   const comOccupied = comOcc.filter(u => u.status === 'Occupied').length;
 
   html += `<div class="kpi-row">
@@ -442,9 +483,10 @@ function render() {
         <div class="kpi-sub-item com"><span>${fmt(comUnits)}</span> Commercial</div>
         ${otherUnits > 0 ? `<div class="kpi-sub-item" style="color:#f87171"><span style="color:#f87171">${fmt(otherUnits)}</span> No Unit Type</div>` : ''}
       </div>
+      <div class="kpi-note${(unitsWithoutLease > 0 || unmatchedLeases > 0) ? ' warn' : ''}">${leaseNote}</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Total Rent Pool (Active Leases)</div>
+      <div class="kpi-label">Total Rent Pool (In-Place Leases)</div>
       <div class="kpi-value" style="color:#4ade80">${fmtCurrency(totalRent)}</div>
       <div class="kpi-sub">
         <div class="kpi-sub-item res"><span>${fmtCurrency(resRent)}</span> Residential</div>
@@ -452,7 +494,7 @@ function render() {
       </div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Total Area Leased (Active)</div>
+      <div class="kpi-label">Total Area Leased (In-Place)</div>
       <div class="kpi-value" style="color:#22d3ee">${fmtArea(totalArea)}</div>
       <div class="kpi-sub">
         <div class="kpi-sub-item res"><span>${fmtArea(resArea)}</span> Residential</div>
@@ -491,23 +533,29 @@ function render() {
     return h;
   }
 
-  const resLeased = activeLeases.filter(l => usageOf(l) === 'Residential');
+  const resLeased = inPlaceLeases.filter(l => usageOf(l) === 'Residential');
   const resUTG = {};
   resLeased.forEach(l => { const ut = normUnitType(l.unit_type) || 'Other'; if (!resUTG[ut]) resUTG[ut] = []; resUTG[ut].push(l); });
-  html += `<div class="charts-row">`;
-  Object.entries(resUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
-    html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#60a5fa;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#60a5fa', false)}</div></div>`;
-  });
-  html += `</div>`;
+  // Sections are only emitted when they have content, so a portfolio with (say)
+  // no residential leases doesn't render an empty shell.
+  if (Object.keys(resUTG).length) {
+    html += `<div class="charts-row">`;
+    Object.entries(resUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
+      html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#60a5fa;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#60a5fa', false)}</div></div>`;
+    });
+    html += `</div>`;
+  }
 
-  const comLeased = activeLeases.filter(l => usageOf(l) === 'Commercial');
+  const comLeased = inPlaceLeases.filter(l => usageOf(l) === 'Commercial');
   const comUTG = {};
   comLeased.forEach(l => { const ut = normUnitType(l.unit_type) || 'Other'; if (!comUTG[ut]) comUTG[ut] = []; comUTG[ut].push(l); });
-  html += `<div class="charts-row">`;
-  Object.entries(comUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
-    html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#fbbf24;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#fbbf24', true)}</div></div>`;
-  });
-  html += `</div>`;
+  if (Object.keys(comUTG).length) {
+    html += `<div class="charts-row">`;
+    Object.entries(comUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
+      html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#fbbf24;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#fbbf24', true)}</div></div>`;
+    });
+    html += `</div>`;
+  }
 
   // --- Occupancy by Property ---
   const propMap = {};
@@ -519,7 +567,7 @@ function render() {
     if (usage === 'Residential') { propMap[u.property].resTot++; if (u.status === 'Occupied') propMap[u.property].resOcc++; }
     else if (usage === 'Commercial') { propMap[u.property].comTot++; if (u.status === 'Occupied') propMap[u.property].comOcc++; }
   });
-  activeLeases.forEach(l => {
+  inPlaceLeases.forEach(l => {
     if (propMap[l.property]) {
       if (usageOf(l) === 'Residential') propMap[l.property].resRent += (l.annual_rent || 0);
       else if (usageOf(l) === 'Commercial') propMap[l.property].comRent += (l.annual_rent || 0);
@@ -527,6 +575,7 @@ function render() {
   });
 
   const propEntries = Object.entries(propMap).sort((a, b) => b[1].total - a[1].total);
+  if (propEntries.length) {
   html += `<div class="section"><div class="section-header"><div class="section-title">Occupancy by Property</div></div><div class="table-wrap"><table>
     <tr><th>Property</th><th class="num">Total Units</th><th>Occupancy</th><th class="num">Res. Units</th><th class="num">Res. Occ%</th><th class="num">Res. Rent</th><th class="num">Com. Units</th><th class="num">Com. Occ%</th><th class="num">Com. Rent</th></tr>`;
   propEntries.forEach(([prop, d]) => {
@@ -540,12 +589,16 @@ function render() {
       <td class="num">${d.comTot}</td><td class="num" style="color:#fbbf24">${cp}%</td><td class="num">${fmtCurrency(d.comRent)}</td></tr>`;
   });
   html += `</table></div></div>`;
+  }
 
   // --- Active Leases Overview ---
   ['Residential', 'Commercial'].forEach(uType => {
     const badge = uType === 'Residential' ? 'badge-res' : 'badge-com';
     const sectionId = uType.toLowerCase();
-    const filtered = leases.filter(l => usageOf(l) === uType);
+    // Restricted to in-place leases so this table reconciles with the KPI
+    // card above. Terminated / cancelled leases aren't pending expiry.
+    const filtered = leases.filter(l => isInPlaceLease(l) && usageOf(l) === uType);
+    if (!filtered.length) return;   // no leases of this usage type — omit the section
 
     const propLeases = {};
     filtered.forEach(l => { if (!propLeases[l.property]) propLeases[l.property] = []; propLeases[l.property].push(l); });
@@ -566,7 +619,7 @@ function render() {
     const propRows = Object.entries(propLeases).sort((a,b) => b[1].length - a[1].length);
     const allBuckets = bucketize(filtered);
 
-    html += `<div class="section" id="section-${sectionId}"><div class="section-header"><div class="section-title">Active Leases Overview</div><div class="section-badge ${badge}">${uType}</div></div><div class="table-wrap"><table>
+    html += `<div class="section" id="section-${sectionId}"><div class="section-header"><div class="section-title">Lease Expiry Overview</div><div class="section-badge ${badge}">${uType}</div></div><div class="table-wrap"><table>
       <tr><th>Property</th><th class="num">Total Leased</th><th class="num">Expiring 120d</th><th class="num">Expiring 90d</th><th class="num">Expiring 60d</th><th class="num">Expiring 30d</th><th class="num">Expired</th></tr>`;
 
     function cellClick(prop, bucket, type) { return `onclick="showDrill('${type}','${prop.replace(/'/g,"\\'")}','${bucket}')" class="clickable"`; }
@@ -585,18 +638,26 @@ function render() {
 
   // --- Nationality Split ---
   const natMap = {};
-  activeLeases.forEach(l => { const n = l.nationality || 'Not Specified'; natMap[n] = (natMap[n] || 0) + 1; });
+  inPlaceLeases.forEach(l => { const n = l.nationality || 'Not Specified'; natMap[n] = (natMap[n] || 0) + 1; });
   const natEntries = Object.entries(natMap).sort((a,b) => b[1] - a[1]);
   const maxNat = natEntries.length ? natEntries[0][1] : 1;
-  const natTotal = activeLeases.length;
+  const natTotal = inPlaceLeases.length;
 
-  html += `<div class="section"><div class="section-header"><div class="section-title">Nationality Split - Active Tenants</div></div><div style="padding:20px 24px; max-height:400px; overflow-y:auto;">`;
+  if (natEntries.length) {
+  html += `<div class="section"><div class="section-header"><div class="section-title">Nationality Split - Current Tenants</div></div><div style="padding:20px 24px; max-height:400px; overflow-y:auto;">`;
   natEntries.forEach(([nat, count]) => {
     const w = (count / maxNat) * 100;
     const p = ((count / natTotal) * 100).toFixed(1);
     html += `<div class="bar-row"><div class="bar-label">${nat}</div><div class="bar-track"><div class="bar-fill" style="width:${w}%;background:#357296"><span class="bar-val">${w > 18 ? count + ' (' + p + '%)' : ''}</span></div></div>${w <= 18 ? `<span class="bar-val-outside">${count} (${p}%)</span>` : ''}</div>`;
   });
   html += `</div></div>`;
+  }
+
+  // Nothing matched the current filters at all — say so rather than leaving
+  // four zeroed cards floating on an otherwise blank page.
+  if (!units.length && !leases.length) {
+    html = `<p style="text-align:center;color:#94a3b8;padding:40px;">No units or leases match the current filters.</p>`;
+  }
 
   db.innerHTML = html;
   if (window.overviewLastUpdated) {
@@ -608,7 +669,7 @@ function render() {
 window.showDrill = function(type, property, bucket) {
   const { leases } = getFilteredData();
   const wantUsage = type === 'residential' ? 'Residential' : 'Commercial';
-  let filtered = leases.filter(l => usageOf(l) === wantUsage);
+  let filtered = leases.filter(l => isInPlaceLease(l) && usageOf(l) === wantUsage);
   if (property !== 'ALL') filtered = filtered.filter(l => l.property === property);
 
   let bucketLabel = '';
@@ -773,7 +834,7 @@ function generatePDF() {
 
   // Get data for this owner
   const leases = OVERVIEW_DATA.leases.filter(l => l.owner === ownerName);
-  const active = leases.filter(l => l.status === 'Active');
+  const active = leases.filter(isInPlaceLease);   // includes Expired-but-in-place
   const props = [...new Set(active.map(l => l.property))].sort();
   const ownerUnits = OVERVIEW_DATA.units.filter(u => props.includes(u.property));
 
@@ -839,7 +900,7 @@ function generatePDF() {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(...TEXT_M);
-  doc.text(props.length + ' Properties  |  ' + ownerUnits.length + ' Total Units  |  ' + active.length + ' Active Leases', 10, y + 5);
+  doc.text(props.length + ' Properties  |  ' + ownerUnits.length + ' Total Units  |  ' + active.length + ' In-Place Leases', 10, y + 5);
 
   // ── KPI Cards ──
   y += 12;
