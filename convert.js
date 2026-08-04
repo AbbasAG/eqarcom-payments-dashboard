@@ -243,11 +243,7 @@ export async function convertTickets(xlsxFile) {
 // Payload: { units, leases, properties, owners }
 //
 // convertOverview()  → pure JSON blob, written to
-//                      private/overview/{orgId}/data.json  (current format)
-// convertEqarat()    → legacy `const EQARAT_DATA = {...};` JavaScript blob,
-//                      written to private/eqarat_data.js. Retained only so
-//                      the old single-org path keeps working; not used by the
-//                      admin UI any more.
+//                      private/overview/{orgId}/data.json
 // ──────────────────────────────────────────────────────────────────
 // Residential is a closed list of three unit types; everything else that has
 // a unit type at all is Commercial. Previously unlisted types fell into an
@@ -319,26 +315,32 @@ async function buildOverviewPayload(unitsFile, leasesFile) {
   const properties = [...new Set(units.map((u) => u.property).filter(Boolean))].sort();
   const owners     = [...new Set(leases.map((l) => l.owner).filter(Boolean))].sort();
 
-  return { units, leases, properties, owners };
+  // Extraction diagnostics, surfaced in the admin UI after each upload. A zero
+  // here means a column wasn't recognised or the two sheets didn't join —
+  // both of which otherwise only show up much later as odd-looking figures.
+  const stats = {
+    units:           units.length,
+    leases:          leases.length,
+    unitsWithBeds:   units.filter((u) => u.bedrooms).length,
+    unitsWithArea:   units.filter((u) => u.built_up_area).length,
+    leasesMatched:   leases.filter((l) => l.unit_code && unitByCode[l.unit_code]).length,
+    leasesWithBeds:  leases.filter((l) => l.bedrooms).length,
+    leasesWithOwner: leases.filter((l) => l.owner).length,
+    leasesWithRent:  leases.filter((l) => l.annual_rent).length,
+    bedHeaders:      Object.keys(unitRows[0] || {}).filter((k) => /bed/i.test(k)),
+  };
+
+  return { payload: { units, leases, properties, owners }, stats };
 }
 
 // Current format: pure JSON, one file per organisation.
 export async function convertOverview(unitsFile, leasesFile) {
-  const payload = await buildOverviewPayload(unitsFile, leasesFile);
+  const { payload, stats } = await buildOverviewPayload(unitsFile, leasesFile);
   // NaN is invalid JSON, but we've already coerced numerics with num() → null.
   return {
     blob:  blobJSON(payload),
     count: payload.units.length + payload.leases.length,
+    stats,
   };
 }
 
-// Legacy format: executable JS assigning a global. Kept for backwards
-// compatibility with private/eqarat_data.js only.
-export async function convertEqarat(unitsFile, leasesFile) {
-  const payload = await buildOverviewPayload(unitsFile, leasesFile);
-  const js = 'const EQARAT_DATA = ' + JSON.stringify(payload) + ';\n';
-  return {
-    blob:  new Blob([js], { type: 'application/javascript' }),
-    count: payload.units.length + payload.leases.length,
-  };
-}

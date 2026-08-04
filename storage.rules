@@ -68,14 +68,6 @@ service firebase.storage {
                    && request.resource.contentType.matches('application/json.*');
     }
 
-    // eqarat_data.js — LEGACY single-org units / leases extract.
-    // Retained as a read-only fallback for the default org until the
-    // per-org file above has been uploaded. Safe to delete afterwards.
-    match /private/eqarat_data.js {
-      allow read:  if hasOverviewOrg('eqarat');
-      allow write: if isAdmin() && isReasonableSize();
-    }
-
     // ─── Default deny ───────────────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

@@ -735,19 +735,6 @@ document.getElementById('pdf-btn').addEventListener('click', generatePDF);
 // ── Per-organisation data loading ───────────────────────────
 // Each organisation has its own extract at
 //   private/overview/{orgId}/data.json
-// The legacy single-org file (private/eqarat_data.js) is still read as a
-// fallback for the default org until its per-org file has been uploaded.
-const LEGACY_ORG_ID   = 'eqarat';
-const LEGACY_ORG_PATH = 'private/eqarat_data.js';
-
-// The legacy file is `const EQARAT_DATA = {...};` — take the object literal
-// after the first '=' and JSON.parse it. No eval, no script injection.
-function parseLegacyOverviewJs(text) {
-  const i = text.indexOf('=');
-  if (i < 0) throw new Error('Unrecognised legacy overview file format');
-  return JSON.parse(text.slice(i + 1).trim().replace(/;\s*$/, ''));
-}
-
 function setDataTimestamp(updated) {
   if (!updated) { window.overviewLastUpdated = null; return; }
   window.overviewLastUpdated =
@@ -773,13 +760,6 @@ window.loadOverviewData = function(orgId) {
     return mod.fetchPrivateJson('private/overview/' + orgId + '/data.json')
       .then(function(result) {
         return { data: result.json, updated: result.updated };
-      })
-      .catch(function(err) {
-        // Fallback: default org that hasn't been re-uploaded in the new format yet.
-        if (orgId !== LEGACY_ORG_ID) throw err;
-        return mod.fetchPrivateText(LEGACY_ORG_PATH).then(function(result) {
-          return { data: parseLegacyOverviewJs(result.text), updated: result.updated };
-        });
       });
   })
   .then(function(result) {
