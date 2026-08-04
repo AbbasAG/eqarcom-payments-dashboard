@@ -203,9 +203,16 @@ export async function convertTickets(xlsxFile) {
 }
 
 // ──────────────────────────────────────────────────────────────────
-// Eqarat → eqarat_data.js
+// Management Overview (Units + Leases) → per-organisation data.json
 // Two input files: Units + Leases. Join key: Unit Number = Unit Code.
-// Output: const EQARAT_DATA = { units, leases, properties, owners };
+// Payload: { units, leases, properties, owners }
+//
+// convertOverview()  → pure JSON blob, written to
+//                      private/overview/{orgId}/data.json  (current format)
+// convertEqarat()    → legacy `const EQARAT_DATA = {...};` JavaScript blob,
+//                      written to private/eqarat_data.js. Retained only so
+//                      the old single-org path keeps working; not used by the
+//                      admin UI any more.
 // ──────────────────────────────────────────────────────────────────
 function usageTypeFor(unitType) {
   const t = String(unitType || '').trim().toLowerCase();
@@ -215,7 +222,7 @@ function usageTypeFor(unitType) {
   return 'Other';
 }
 
-export async function convertEqarat(unitsFile, leasesFile) {
+async function buildOverviewPayload(unitsFile, leasesFile) {
   const [unitRows, leaseRows] = await Promise.all([
     readSheet(unitsFile),
     readSheet(leasesFile),
@@ -271,11 +278,26 @@ export async function convertEqarat(unitsFile, leasesFile) {
   const properties = [...new Set(units.map((u) => u.property).filter(Boolean))].sort();
   const owners     = [...new Set(leases.map((l) => l.owner).filter(Boolean))].sort();
 
-  const payload = { units, leases, properties, owners };
+  return { units, leases, properties, owners };
+}
+
+// Current format: pure JSON, one file per organisation.
+export async function convertOverview(unitsFile, leasesFile) {
+  const payload = await buildOverviewPayload(unitsFile, leasesFile);
   // NaN is invalid JSON, but we've already coerced numerics with num() → null.
+  return {
+    blob:  blobJSON(payload),
+    count: payload.units.length + payload.leases.length,
+  };
+}
+
+// Legacy format: executable JS assigning a global. Kept for backwards
+// compatibility with private/eqarat_data.js only.
+export async function convertEqarat(unitsFile, leasesFile) {
+  const payload = await buildOverviewPayload(unitsFile, leasesFile);
   const js = 'const EQARAT_DATA = ' + JSON.stringify(payload) + ';\n';
   return {
     blob:  new Blob([js], { type: 'application/javascript' }),
-    count: units.length + leases.length,
+    count: payload.units.length + payload.leases.length,
   };
 }

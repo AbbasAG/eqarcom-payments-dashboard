@@ -25,6 +25,21 @@ service firebase.storage {
     function hasBookings() { return isEnabled() && (isAdmin() || userDoc().serviceBookings != false); }
     function hasOverview() { return isEnabled() && (isAdmin() || userDoc().managementDashboard == true); }
 
+    // Management Overview is additionally scoped per organisation.
+    // users/{email}.managementOrgs is a list of org ids the user may read.
+    // Admins bypass the check. A user with no managementOrgs field set is
+    // treated as legacy single-org and may read the default org only.
+    function hasOverviewOrg(orgId) {
+      return isAdmin() || (
+        hasOverview() && (
+          (userDoc().keys().hasAny(['managementOrgs'])
+            && userDoc().managementOrgs is list
+            && userDoc().managementOrgs.hasAny([orgId]))
+          || (!userDoc().keys().hasAny(['managementOrgs']) && orgId == 'eqarat')
+        )
+      );
+    }
+
     // Reasonable upload-size cap to prevent storage abuse (50 MB)
     function isReasonableSize() { return request.resource.size < 50 * 1024 * 1024; }
 
@@ -43,10 +58,21 @@ service firebase.storage {
                    && request.resource.contentType.matches('application/json.*');
     }
 
-    // eqarat_data.js — units / leases extract (used by Management Overview)
-    // Stored as text; loaded via fetch + Blob URL on the client.
+    // ─── Management Overview: one extract per organisation ──────
+    // private/overview/{orgId}/data.json — units / leases for that org.
+    // Read requires the Management Overview permission AND membership of
+    // that specific organisation.
+    match /private/overview/{orgId}/data.json {
+      allow read:  if hasOverviewOrg(orgId);
+      allow write: if isAdmin() && isReasonableSize()
+                   && request.resource.contentType.matches('application/json.*');
+    }
+
+    // eqarat_data.js — LEGACY single-org units / leases extract.
+    // Retained as a read-only fallback for the default org until the
+    // per-org file above has been uploaded. Safe to delete afterwards.
     match /private/eqarat_data.js {
-      allow read:  if hasOverview();
+      allow read:  if hasOverviewOrg('eqarat');
       allow write: if isAdmin() && isReasonableSize();
     }
 

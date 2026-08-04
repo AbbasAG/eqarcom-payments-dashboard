@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Management Overview — EQARCOM Digital Payments</title>
-<!-- eqarat_data.js loaded dynamically after auth — see auth guard below -->
+<!-- Per-organisation units/leases data loaded dynamically after auth — see auth guard below -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -238,6 +238,10 @@ th.num { text-align: right; }
 
 <div class="main">
   <div class="filters-bar">
+    <div class="filter-group" id="orgFilterGroup" style="display:none;">
+      <label>Organisation</label>
+      <select id="filterOrg"></select>
+    </div>
     <div class="filter-group">
       <label>Property</label>
       <select id="filterProperty"><option value="">All Properties</option></select>
@@ -314,13 +318,21 @@ function normBedroom(b) {
 
 let filters = { property: '', usage: '', owner: '' };
 
+// Units / leases for the currently selected organisation.
+// Populated by loadOverviewData().
+let OVERVIEW_DATA = { units: [], leases: [], properties: [], owners: [] };
+
 function initFilters() {
   const propSel = document.getElementById('filterProperty');
   const ownerSel = document.getElementById('filterOwner');
-  EQARAT_DATA.properties.forEach(p => {
+  // Rebuilt from scratch each time so switching organisation doesn't
+  // leave the previous org's properties/owners in the dropdowns.
+  propSel.innerHTML = '<option value="">All Properties</option>';
+  ownerSel.innerHTML = '<option value="">All Owners</option>';
+  OVERVIEW_DATA.properties.forEach(p => {
     propSel.innerHTML += `<option value="${p}">${p}</option>`;
   });
-  EQARAT_DATA.owners.forEach(o => {
+  OVERVIEW_DATA.owners.forEach(o => {
     ownerSel.innerHTML += `<option value="${o}">${o}</option>`;
   });
 }
@@ -349,8 +361,8 @@ function resetFilters() {
 }
 
 function getFilteredData() {
-  let units = EQARAT_DATA.units;
-  let leases = EQARAT_DATA.leases;
+  let units = OVERVIEW_DATA.units;
+  let leases = OVERVIEW_DATA.leases;
 
   if (filters.property) {
     units = units.filter(u => u.property === filters.property);
@@ -561,8 +573,8 @@ function render() {
   html += `</div></div>`;
 
   db.innerHTML = html;
-  if (window.eqaratLastUpdated) {
-    document.getElementById('data-timestamp').textContent = 'Units & Leases data updated ' + window.eqaratLastUpdated;
+  if (window.overviewLastUpdated) {
+    document.getElementById('data-timestamp').textContent = 'Units & Leases data updated ' + window.overviewLastUpdated;
   }
 }
 
@@ -608,39 +620,103 @@ document.getElementById('filterUsage').addEventListener('change', applyFilters);
 document.getElementById('filterOwner').addEventListener('change', applyFilters);
 document.getElementById('pdf-btn').addEventListener('click', generatePDF);
 
-// ── Load overview data from Cloud Storage (auth-gated) ──
-// Fetches eqarat_data.js as text, wraps in a Blob URL, then loads as a module-less
-// <script> tag. This preserves the existing global-assignment format (const EQARAT_DATA = {...})
-// without needing to eval() user-influenced content directly.
-window.loadOverviewData = function() {
-  import('./firebase-init.js').then(function(mod) {
-    return mod.fetchPrivateText('private/eqarat_data.js');
+// ── Per-organisation data loading ───────────────────────────
+// Each organisation has its own extract at
+//   private/overview/{orgId}/data.json
+// The legacy single-org file (private/eqarat_data.js) is still read as a
+// fallback for the default org until its per-org file has been uploaded.
+const LEGACY_ORG_ID   = 'eqarat';
+const LEGACY_ORG_PATH = 'private/eqarat_data.js';
+
+// The legacy file is `const EQARAT_DATA = {...};` — take the object literal
+// after the first '=' and JSON.parse it. No eval, no script injection.
+function parseLegacyOverviewJs(text) {
+  const i = text.indexOf('=');
+  if (i < 0) throw new Error('Unrecognised legacy overview file format');
+  return JSON.parse(text.slice(i + 1).trim().replace(/;\s*$/, ''));
+}
+
+function setDataTimestamp(updated) {
+  if (!updated) { window.overviewLastUpdated = null; return; }
+  window.overviewLastUpdated =
+    updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    + ' ' + updated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function showOverviewMessage(text) {
+  document.getElementById('dashboard').innerHTML =
+    '<p style="text-align:center;color:#94a3b8;padding:40px;">' + text + '</p>';
+}
+
+window.loadOverviewData = function(orgId) {
+  if (!orgId) {
+    showOverviewMessage('No organisation has been assigned to your account. Please contact an administrator.');
+    return Promise.resolve();
+  }
+
+  showOverviewMessage('Loading data…');
+  document.getElementById('data-timestamp').textContent = '';
+
+  return import('./firebase-init.js').then(function(mod) {
+    return mod.fetchPrivateJson('private/overview/' + orgId + '/data.json')
+      .then(function(result) {
+        return { data: result.json, updated: result.updated };
+      })
+      .catch(function(err) {
+        // Fallback: default org that hasn't been re-uploaded in the new format yet.
+        if (orgId !== LEGACY_ORG_ID) throw err;
+        return mod.fetchPrivateText(LEGACY_ORG_PATH).then(function(result) {
+          return { data: parseLegacyOverviewJs(result.text), updated: result.updated };
+        });
+      });
   })
   .then(function(result) {
-    if (result.updated) {
-      window.eqaratLastUpdated = result.updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-        + ' ' + result.updated.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    }
-    var blob = new Blob([result.text], { type: 'application/javascript' });
-    var url = URL.createObjectURL(blob);
-    var script = document.createElement('script');
-    script.src = url;
-    script.onload = function() {
-      URL.revokeObjectURL(url);
-      initFilters();
-      render();
+    const d = result.data || {};
+    OVERVIEW_DATA = {
+      units:      Array.isArray(d.units) ? d.units : [],
+      leases:     Array.isArray(d.leases) ? d.leases : [],
+      properties: Array.isArray(d.properties) ? d.properties : [],
+      owners:     Array.isArray(d.owners) ? d.owners : []
     };
-    script.onerror = function() {
-      URL.revokeObjectURL(url);
-      throw new Error('Failed to execute eqarat_data.js');
-    };
-    document.head.appendChild(script);
+    setDataTimestamp(result.updated);
+    initFilters();               // rebuilds property/owner dropdowns for this org
+    document.getElementById('filterUsage').value = '';
+    filters = { property: '', usage: '', owner: '' };
+    updatePdfButton();
+    render();
   })
   .catch(function(err) {
-    console.error('Overview data fetch failed:', err);
-    document.getElementById('dashboard').innerHTML =
-      '<p style="text-align:center;color:#94a3b8;padding:40px;">Unable to load data. Please contact an administrator.</p>';
+    console.error('Overview data fetch failed for org "' + orgId + '":', err);
+    OVERVIEW_DATA = { units: [], leases: [], properties: [], owners: [] };
+    initFilters();
+    showOverviewMessage('No data has been uploaded for this organisation yet, or you do not have access to it. Please contact an administrator.');
   });
+};
+
+// Populate the organisation dropdown. Hidden entirely when the user only has
+// one organisation, so single-org users see exactly what they see today.
+window.initOrgSelector = function(orgs, initialId) {
+  const sel   = document.getElementById('filterOrg');
+  const group = document.getElementById('orgFilterGroup');
+
+  sel.innerHTML = '';
+  orgs.forEach(function(o) {
+    const opt = document.createElement('option');
+    opt.value = o.id;
+    opt.textContent = o.name;
+    sel.appendChild(opt);
+  });
+
+  if (orgs.length > 1) {
+    sel.value = initialId;
+    group.style.display = 'flex';
+    sel.addEventListener('change', function() {
+      try { localStorage.setItem('eqarcom.overview.org', sel.value); } catch (e) {}
+      window.loadOverviewData(sel.value);
+    });
+  } else {
+    group.style.display = 'none';
+  }
 };
 
 // ── PDF Generation ──────────────────────────────────────────
@@ -670,10 +746,10 @@ function generatePDF() {
   const AMBER = [146, 64, 14];
 
   // Get data for this owner
-  const leases = EQARAT_DATA.leases.filter(l => l.owner === ownerName);
+  const leases = OVERVIEW_DATA.leases.filter(l => l.owner === ownerName);
   const active = leases.filter(l => l.status === 'Active');
   const props = [...new Set(active.map(l => l.property))].sort();
-  const ownerUnits = EQARAT_DATA.units.filter(u => props.includes(u.property));
+  const ownerUnits = OVERVIEW_DATA.units.filter(u => props.includes(u.property));
 
   const totalRent = active.reduce((s, l) => s + (l.annual_rent || 0), 0);
   const resActive = active.filter(l => l.usage_type === 'Residential');
@@ -960,7 +1036,44 @@ function generatePDF() {
 
 <!-- Firebase auth guard -->
 <script type="module">
-  import { auth, db, onAuthStateChanged, signOut, doc, getDoc, updateDoc } from './firebase-init.js';
+  import { auth, db, onAuthStateChanged, signOut, doc, getDoc, updateDoc, getDocs, collection } from './firebase-init.js';
+
+  const MGMT_ORGS_COLLECTION = 'management_orgs';
+  const DEFAULT_ORG_ID = 'eqarat';
+
+  // Every organisation registered in Firestore, in display order.
+  async function fetchAllOrgs() {
+    try {
+      const snap = await getDocs(collection(db, MGMT_ORGS_COLLECTION));
+      const list = [];
+      snap.forEach(function(d) {
+        const data = d.data() || {};
+        list.push({ id: d.id, name: data.name || d.id });
+      });
+      list.sort(function(a, b) { return a.name.localeCompare(b.name); });
+      return list;
+    } catch (e) {
+      console.warn('Could not read organisation registry:', e);
+      return [];
+    }
+  }
+
+  // Which organisations this user may see on the Management Overview.
+  // Admins see all. Users with no managementOrgs field set are legacy
+  // single-org users and keep seeing the default organisation.
+  function resolveUserOrgs(userData, allOrgs) {
+    if (userData.isAdmin) {
+      return allOrgs.length ? allOrgs : [{ id: DEFAULT_ORG_ID, name: 'Eqarat' }];
+    }
+
+    const ids = Array.isArray(userData.managementOrgs)
+      ? userData.managementOrgs
+      : [DEFAULT_ORG_ID];
+
+    const byId = {};
+    allOrgs.forEach(function(o) { byId[o.id] = o; });
+    return ids.map(function(id) { return byId[id] || { id: id, name: id }; });
+  }
 
   document.getElementById('logout-btn').addEventListener('click', function() {
     this.disabled = true;
@@ -996,8 +1109,25 @@ function generatePDF() {
         document.getElementById('bookings-tab').style.display = 'inline-flex';
       }
       document.body.classList.add('authenticated');
-      // Load data only after auth + permissions confirmed
-      window.loadOverviewData();
+
+      // Resolve which organisations this user may view, then load the first.
+      var allOrgs  = await fetchAllOrgs();
+      var userOrgs = resolveUserOrgs(userData, allOrgs);
+
+      if (!userOrgs.length) {
+        document.getElementById('dashboard').innerHTML =
+          '<p style="text-align:center;color:#94a3b8;padding:40px;">No organisation has been assigned to your account. Please contact an administrator.</p>';
+      } else {
+        var saved = null;
+        try { saved = localStorage.getItem('eqarcom.overview.org'); } catch (e) {}
+        var initialId = userOrgs.some(function(o) { return o.id === saved; })
+          ? saved
+          : userOrgs[0].id;
+
+        window.initOrgSelector(userOrgs, initialId);
+        window.loadOverviewData(initialId);
+      }
+
       updateDoc(doc(db, 'users', email), { lastVisited: new Date().toISOString() }).catch(function(){});
     } catch (e) {
       console.error('Auth check failed:', e);

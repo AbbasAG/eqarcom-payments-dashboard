@@ -25,11 +25,22 @@ service cloud.firestore {
       //   registered, uid  — set during registration
       //   lastVisited      — set on each login
       // Cannot change: isAdmin, payments, serviceBookings, managementDashboard,
-      //                allowedOrgs, enabled, name, email
+      //                allowedOrgs, managementOrgs, enabled, name, email
       allow update: if request.auth != null
                     && request.auth.token.email == email
                     && request.resource.data.diff(resource.data).affectedKeys()
                        .hasOnly(['registered', 'uid', 'lastVisited']);
+    }
+
+    // ── Management Overview organisations ──
+    // Registry of organisations that have a Management Overview extract.
+    // Doc id = org slug (e.g. "eqarat"); data = { id, name, createdAt }.
+    // Any signed-in user may read it (the overview page needs display names
+    // for the orgs they are assigned). Only the admin may create/modify.
+    match /management_orgs/{orgId} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && request.auth.token.email == 'abbas.hayat@al-ghurair.com';
     }
 
     // ── Deny everything else by default ──

@@ -238,8 +238,12 @@
           <div id="modal-dashboards"></div>
         </div>
         <div class="modal-section">
-          <div class="modal-section-title">Organization Access</div>
+          <div class="modal-section-title">Organization Access — Payments &amp; Service Bookings</div>
           <div id="modal-orgs"></div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Organization Access — Management Overview</div>
+          <div id="modal-mgmt-orgs"></div>
         </div>
       </div>
       <div class="modal-status" id="modal-status"></div>
@@ -303,22 +307,44 @@
               <button type="button" class="edit-btn up-btn">Choose &amp; Upload</button>
             </td>
           </tr>
-          <tr data-path="private/eqarat_data.js" data-kind="eqarat">
-            <td><strong>eqarat_data.js</strong><div style="font-size:11px;color:#64748b;margin-top:2px;">From Units + Leases .xlsx</div></td>
-            <td><span class="pill pill-dash">Management Overview</span></td>
-            <td class="up-current">—</td>
-            <td class="up-updated">—</td>
-            <td>
-              <input type="file" class="up-input-units" accept=".xlsx" hidden>
-              <input type="file" class="up-input-leases" accept=".xlsx" hidden>
-              <button type="button" class="edit-btn up-btn-units">Choose Units.xlsx</button>
-              <button type="button" class="edit-btn up-btn-leases" style="margin-left:6px;">Choose Leases.xlsx</button>
-              <div class="up-eqarat-status" style="font-size:11px;color:#64748b;margin-top:6px;"></div>
-            </td>
-          </tr>
+          <!-- Management Overview extracts are rendered per organisation below -->
         </tbody>
       </table>
       <div class="form-msg" id="upload-msg"></div>
+    </div>
+
+    <!-- Management Overview Organizations -->
+    <div class="card">
+      <h2>Management Overview — Organizations</h2>
+      <p style="font-size:12px;color:#64748b;margin-bottom:16px;">
+        Each organisation has its own Units&nbsp;+&nbsp;Leases extract. Users only see the
+        Management Overview for the organisations assigned to them. This list does
+        <strong>not</strong> affect the Payments or Service Bookings dashboards.
+      </p>
+
+      <form class="add-form" id="add-org-form" style="margin-bottom:20px;">
+        <input type="text" id="new-org-name" placeholder="Organisation name (e.g. Al Ghurair Properties)" required>
+        <button type="submit" class="add-btn" id="add-org-btn">Add Organisation</button>
+      </form>
+      <div class="form-msg" id="org-msg"></div>
+
+      <div class="table-scroll">
+        <table class="users-table" style="min-width:auto;">
+          <thead>
+            <tr>
+              <th>Organisation</th>
+              <th>Org ID</th>
+              <th>Data file</th>
+              <th>Last updated</th>
+              <th>Upload Units + Leases</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="orgs-tbody">
+            <tr class="loading-row"><td colspan="6">Loading organisations&hellip;</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Add User -->
@@ -344,6 +370,7 @@
             <th>Role</th>
             <th>Dashboards</th>
             <th>Organizations</th>
+            <th>Overview Orgs</th>
             <th>Registered</th>
             <th>Last Visited</th>
             <th>Enabled</th>
@@ -351,7 +378,7 @@
           </tr>
         </thead>
         <tbody id="users-tbody">
-          <tr class="loading-row"><td colspan="9">Loading users&hellip;</td></tr>
+          <tr class="loading-row"><td colspan="10">Loading users&hellip;</td></tr>
         </tbody>
       </table>
       </div>
@@ -366,7 +393,28 @@
       storageRef, uploadBytes, getMetadata,
       fetchPrivateJson
     } from './firebase-init.js';
-    import { convertPayments, convertTickets, convertEqarat } from './convert.js';
+    import { convertPayments, convertTickets, convertOverview } from './convert.js';
+
+    // ── Management Overview organisation registry ───────────────
+    // Firestore collection `management_orgs`, doc id = slug.
+    // Storage path for each org's extract: private/overview/{id}/data.json
+    const LEGACY_ORG_ID   = 'eqarat';
+    const LEGACY_ORG_NAME = 'Eqarat';
+    const MGMT_ORGS_COLLECTION = 'management_orgs';
+
+    let MGMT_ORGS = [];   // [{ id, name }]
+
+    function orgDataPath(orgId) {
+      return 'private/overview/' + orgId + '/data.json';
+    }
+
+    function slugify(name) {
+      return String(name)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .substring(0, 40);
+    }
 
     // ── Auth guard: admin only ──
     onAuthStateChanged(auth, async function(user) {
@@ -381,6 +429,7 @@
         }
         document.body.classList.add('authenticated');
         initUploads();
+        await loadManagementOrgs();
         loadUsers();
         fetchOrganizations();
       } catch (e) {
@@ -392,76 +441,58 @@
     // ── Upload data extracts to Cloud Storage ──
     function initUploads() {
       refreshUploadMetadata();
-      document.querySelectorAll('#uploads-tbody tr').forEach(function(row) {
-        var kind = row.dataset.kind;
-        if (kind === 'eqarat') {
-          var btnU   = row.querySelector('.up-btn-units');
-          var btnL   = row.querySelector('.up-btn-leases');
-          var inU    = row.querySelector('.up-input-units');
-          var inL    = row.querySelector('.up-input-leases');
-          var status = row.querySelector('.up-eqarat-status');
-          btnU.addEventListener('click', function() { inU.click(); });
-          btnL.addEventListener('click', function() { inL.click(); });
-          inU.addEventListener('change', function() {
-            if (inU.files[0]) {
-              row._unitsFile = inU.files[0];
-              btnU.textContent = '✓ ' + inU.files[0].name;
-            }
-            maybeRunEqarat(row, status);
-          });
-          inL.addEventListener('change', function() {
-            if (inL.files[0]) {
-              row._leasesFile = inL.files[0];
-              btnL.textContent = '✓ ' + inL.files[0].name;
-            }
-            maybeRunEqarat(row, status);
-          });
-        } else {
-          var btn   = row.querySelector('.up-btn');
-          var input = row.querySelector('.up-input');
-          btn.addEventListener('click', function() { input.click(); });
-          input.addEventListener('change', function(e) {
-            var file = e.target.files[0];
-            if (file) handleUpload(row, file);
-            input.value = '';
-          });
-        }
+      document.querySelectorAll('#uploads-tbody tr[data-kind]').forEach(function(row) {
+        var btn   = row.querySelector('.up-btn');
+        var input = row.querySelector('.up-input');
+        btn.addEventListener('click', function() { input.click(); });
+        input.addEventListener('change', function(e) {
+          var file = e.target.files[0];
+          if (file) handleUpload(row, file);
+          input.value = '';
+        });
       });
     }
 
-    function maybeRunEqarat(row, status) {
-      if (row._unitsFile && row._leasesFile && !row._eqaratBusy) {
-        row._eqaratBusy = true;
+    // Units + Leases are chosen separately; the conversion runs as soon as
+    // both files are present for that organisation's row.
+    function maybeRunOverview(row, status) {
+      if (row._unitsFile && row._leasesFile && !row._overviewBusy) {
+        row._overviewBusy = true;
         status.textContent = 'Converting Units + Leases…';
         handleUpload(row, null).finally(function() {
-          row._eqaratBusy = false;
+          row._overviewBusy = false;
         });
       }
     }
 
     async function refreshUploadMetadata() {
-      var rows = document.querySelectorAll('#uploads-tbody tr');
+      var rows = document.querySelectorAll('#uploads-tbody tr[data-kind]');
       for (var i = 0; i < rows.length; i++) {
-        var row = rows[i];
-        var path = row.dataset.path;
-        try {
-          var meta = await getMetadata(storageRef(storage, path));
-          row.querySelector('.up-current').textContent  =
-            (meta.size / 1024).toFixed(0) + ' KB';
-          row.querySelector('.up-updated').textContent =
-            meta.updated ? new Date(meta.updated).toLocaleString('en-GB') : '—';
-        } catch (err) {
-          row.querySelector('.up-current').textContent = 'Not yet uploaded';
-          row.querySelector('.up-updated').textContent = '—';
-        }
+        await refreshRowMetadata(rows[i]);
+      }
+    }
+
+    async function refreshRowMetadata(row) {
+      var path = row.dataset.path;
+      try {
+        var meta = await getMetadata(storageRef(storage, path));
+        row.querySelector('.up-current').textContent  =
+          (meta.size / 1024).toFixed(0) + ' KB';
+        row.querySelector('.up-updated').textContent =
+          meta.updated ? new Date(meta.updated).toLocaleString('en-GB') : '—';
+      } catch (err) {
+        row.querySelector('.up-current').textContent = 'Not yet uploaded';
+        row.querySelector('.up-updated').textContent = '—';
       }
     }
 
     async function handleUpload(row, file) {
       var path   = row.dataset.path;
       var kind   = row.dataset.kind;
-      var msg    = document.getElementById('upload-msg');
-      var eqStatus = row.querySelector('.up-eqarat-status');
+      var isOverview = kind === 'overview';
+      var msgId  = isOverview ? 'org-msg' : 'upload-msg';
+      var msg    = document.getElementById(msgId);
+      var ovStatus = row.querySelector('.up-overview-status');
       var btns   = row.querySelectorAll('button');
       var originalLabels = [];
       btns.forEach(function(b, i) { originalLabels[i] = b.textContent; b.disabled = true; });
@@ -469,7 +500,7 @@
       msg.className = 'form-msg'; msg.style.display = 'none';
 
       function setBtn(text) {
-        if (kind === 'eqarat') { if (eqStatus) eqStatus.textContent = text; }
+        if (isOverview) { if (ovStatus) ovStatus.textContent = text; }
         else { btns[0].textContent = text; }
       }
 
@@ -480,16 +511,13 @@
 
         setBtn('Converting…');
         var result;
-        var contentType;
+        var contentType = 'application/json';
         if (kind === 'payments') {
           result = await convertPayments(file);
-          contentType = 'application/json';
         } else if (kind === 'tickets') {
           result = await convertTickets(file);
-          contentType = 'application/json';
-        } else if (kind === 'eqarat') {
-          result = await convertEqarat(row._unitsFile, row._leasesFile);
-          contentType = 'application/javascript';
+        } else if (isOverview) {
+          result = await convertOverview(row._unitsFile, row._leasesFile);
         } else {
           throw new Error('Unknown upload kind: ' + kind);
         }
@@ -500,30 +528,36 @@
           cacheControl: 'no-store'
         });
 
-        showUploadMsg('success', path + ' updated successfully (' + result.count + ' records).');
-        if (kind === 'eqarat') {
+        showMsg(msgId, 'success', path + ' updated successfully (' + result.count + ' records).');
+        if (isOverview) {
           row._unitsFile = null;
           row._leasesFile = null;
           row.querySelector('.up-input-units').value = '';
           row.querySelector('.up-input-leases').value = '';
-          if (eqStatus) eqStatus.textContent = '';
+          if (ovStatus) ovStatus.textContent = '';
+          originalLabels[0] = 'Choose Units.xlsx';
+          originalLabels[1] = 'Choose Leases.xlsx';
+          await refreshRowMetadata(row);
+        } else {
+          await refreshUploadMetadata();
         }
-        await refreshUploadMetadata();
       } catch (err) {
         console.error('Upload failed:', err);
-        showUploadMsg('error', 'Upload failed: ' + (err.message || err.code || 'unknown error'));
-        if (kind === 'eqarat' && eqStatus) eqStatus.textContent = '';
+        showMsg(msgId, 'error', 'Upload failed: ' + (err.message || err.code || 'unknown error'));
+        if (isOverview && ovStatus) ovStatus.textContent = '';
       } finally {
         btns.forEach(function(b, i) { b.disabled = false; b.textContent = originalLabels[i]; });
       }
     }
 
-    function showUploadMsg(kind, text) {
-      var el = document.getElementById('upload-msg');
+    function showMsg(elId, kind, text) {
+      var el = document.getElementById(elId);
       el.className = 'form-msg ' + kind;
       el.textContent = text;
       el.style.display = 'block';
     }
+
+    function showUploadMsg(kind, text) { showMsg('upload-msg', kind, text); }
 
     // ── Helpers ──
     function escapeHtml(str) {
@@ -552,6 +586,183 @@
       }
     }
 
+    // ── Management Overview organisations ────────────────────────
+    async function loadManagementOrgs() {
+      try {
+        var snap = await getDocs(collection(db, MGMT_ORGS_COLLECTION));
+        var list = [];
+        snap.forEach(function(d) {
+          var data = d.data() || {};
+          list.push({ id: d.id, name: data.name || d.id });
+        });
+
+        // First run: seed the existing single organisation so nothing breaks.
+        if (list.length === 0) {
+          await setDoc(doc(db, MGMT_ORGS_COLLECTION, LEGACY_ORG_ID), {
+            id: LEGACY_ORG_ID,
+            name: LEGACY_ORG_NAME,
+            createdAt: new Date().toISOString()
+          });
+          list.push({ id: LEGACY_ORG_ID, name: LEGACY_ORG_NAME });
+        }
+
+        list.sort(function(a, b) { return a.name.localeCompare(b.name); });
+        MGMT_ORGS = list;
+      } catch (e) {
+        console.error('Could not load management organisations:', e);
+        MGMT_ORGS = [];
+      }
+      renderOrgsTable();
+    }
+
+    function renderOrgsTable() {
+      var tbody = document.getElementById('orgs-tbody');
+      tbody.innerHTML = '';
+
+      if (!MGMT_ORGS.length) {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="6">No organisations yet. Add one above.</td></tr>';
+        return;
+      }
+
+      MGMT_ORGS.forEach(function(org) {
+        var tr = document.createElement('tr');
+        tr.dataset.path = orgDataPath(org.id);
+        tr.dataset.kind = 'overview';
+        tr.dataset.orgId = org.id;
+        tr.innerHTML =
+          '<td><strong>' + escapeHtml(org.name) + '</strong></td>' +
+          '<td style="font-size:12px;color:#94a3b8;">' + escapeHtml(org.id) + '</td>' +
+          '<td class="up-current">—</td>' +
+          '<td class="up-updated">—</td>' +
+          '<td>' +
+            '<input type="file" class="up-input-units" accept=".xlsx" hidden>' +
+            '<input type="file" class="up-input-leases" accept=".xlsx" hidden>' +
+            '<button type="button" class="edit-btn up-btn-units">Choose Units.xlsx</button>' +
+            '<button type="button" class="edit-btn up-btn-leases" style="margin-left:6px;">Choose Leases.xlsx</button>' +
+            '<div class="up-overview-status" style="font-size:11px;color:#64748b;margin-top:6px;"></div>' +
+          '</td>' +
+          '<td style="white-space:nowrap;">' +
+            '<button type="button" class="edit-btn org-rename-btn">Rename</button>' +
+            '<button type="button" class="edit-btn org-delete-btn" style="margin-left:6px;color:#ef4444;border-color:rgba(239,68,68,0.3);">Delete</button>' +
+          '</td>';
+        tbody.appendChild(tr);
+        bindOrgRow(tr, org);
+        refreshRowMetadata(tr);
+      });
+    }
+
+    function bindOrgRow(row, org) {
+      var btnU   = row.querySelector('.up-btn-units');
+      var btnL   = row.querySelector('.up-btn-leases');
+      var inU    = row.querySelector('.up-input-units');
+      var inL    = row.querySelector('.up-input-leases');
+      var status = row.querySelector('.up-overview-status');
+
+      btnU.addEventListener('click', function() { inU.click(); });
+      btnL.addEventListener('click', function() { inL.click(); });
+      inU.addEventListener('change', function() {
+        if (inU.files[0]) { row._unitsFile = inU.files[0]; btnU.textContent = '✓ ' + inU.files[0].name; }
+        maybeRunOverview(row, status);
+      });
+      inL.addEventListener('change', function() {
+        if (inL.files[0]) { row._leasesFile = inL.files[0]; btnL.textContent = '✓ ' + inL.files[0].name; }
+        maybeRunOverview(row, status);
+      });
+
+      row.querySelector('.org-rename-btn').addEventListener('click', async function() {
+        var newName = prompt('Rename organisation (the Org ID and its uploaded data stay the same):', org.name);
+        if (newName === null) return;
+        newName = newName.trim();
+        if (!newName || newName === org.name) return;
+        try {
+          await updateDoc(doc(db, MGMT_ORGS_COLLECTION, org.id), { name: newName });
+          await loadManagementOrgs();
+          showMsg('org-msg', 'success', 'Organisation renamed to "' + newName + '".');
+        } catch (err) {
+          showMsg('org-msg', 'error', 'Rename failed: ' + err.message);
+        }
+      });
+
+      row.querySelector('.org-delete-btn').addEventListener('click', async function() {
+        var confirmed = confirm(
+          'Remove organisation "' + org.name + '" from the Management Overview?\n\n' +
+          'It will be unassigned from all users and will no longer appear on the ' +
+          'Management Overview page. The uploaded data file is not deleted from storage.\n\n' +
+          'Payments and Service Bookings are unaffected.'
+        );
+        if (!confirmed) return;
+        try {
+          await deleteDoc(doc(db, MGMT_ORGS_COLLECTION, org.id));
+          await removeOrgFromAllUsers(org.id);
+          await loadManagementOrgs();
+          loadUsers();
+          showMsg('org-msg', 'success', 'Organisation "' + org.name + '" removed.');
+        } catch (err) {
+          showMsg('org-msg', 'error', 'Delete failed: ' + err.message);
+        }
+      });
+    }
+
+    // Strip a deleted org id out of every user's managementOrgs list so no
+    // stale ids linger. Only touches managementOrgs — nothing else.
+    async function removeOrgFromAllUsers(orgId) {
+      var snapshot = await getDocs(collection(db, 'users'));
+      var jobs = [];
+      snapshot.forEach(function(docSnap) {
+        var data = docSnap.data();
+        if (Array.isArray(data.managementOrgs) && data.managementOrgs.includes(orgId)) {
+          jobs.push(updateDoc(doc(db, 'users', docSnap.id), {
+            managementOrgs: data.managementOrgs.filter(function(o) { return o !== orgId; })
+          }));
+        }
+      });
+      await Promise.all(jobs);
+    }
+
+    document.getElementById('add-org-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      var nameEl = document.getElementById('new-org-name');
+      var btn    = document.getElementById('add-org-btn');
+      var name   = nameEl.value.trim();
+      if (!name) return;
+
+      var id = slugify(name);
+      if (!id) {
+        showMsg('org-msg', 'error', 'Please use a name containing at least one letter or number.');
+        return;
+      }
+      if (MGMT_ORGS.some(function(o) { return o.id === id; })) {
+        showMsg('org-msg', 'error', 'An organisation with the ID "' + id + '" already exists.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Adding…';
+      try {
+        await setDoc(doc(db, MGMT_ORGS_COLLECTION, id), {
+          id: id,
+          name: name,
+          createdAt: new Date().toISOString()
+        });
+        nameEl.value = '';
+        await loadManagementOrgs();
+        showMsg('org-msg', 'success',
+          'Organisation "' + name + '" added (ID: ' + id + '). Upload its Units + Leases extracts, then assign it to users.');
+      } catch (err) {
+        showMsg('org-msg', 'error', 'Failed to add organisation: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Add Organisation';
+      }
+    });
+
+    // Resolve which overview orgs a user currently has. Legacy users with no
+    // managementOrgs field are treated as having the original single org.
+    function userManagementOrgs(data) {
+      if (Array.isArray(data.managementOrgs)) return data.managementOrgs;
+      return [LEGACY_ORG_ID];
+    }
+
     // ── Build at-a-glance pills ──
     function buildDashboardPills(data) {
       if (data.isAdmin) return '<span class="pill pill-admin">All (Admin)</span>';
@@ -574,6 +785,23 @@
         // Shorten long org names for display
         var short = o.length > 25 ? o.substring(0, 22) + '...' : o;
         return '<span class="pill pill-org" title="' + escapeHtml(o) + '">' + escapeHtml(short) + '</span>';
+      }).join('') + '</div>';
+    }
+
+    // Management Overview org pills — independent of buildOrgPills above,
+    // which covers the Payments / Service Bookings organisation filter.
+    function buildMgmtOrgPills(data) {
+      if (data.isAdmin) return '<span class="pill pill-admin">All (Admin)</span>';
+      if (!data.managementDashboard) return '<span class="pill pill-none">No access</span>';
+
+      var ids = userManagementOrgs(data);
+      if (!ids.length) return '<span class="pill pill-none">None assigned</span>';
+
+      return '<div class="pill-row">' + ids.map(function(id) {
+        var org = MGMT_ORGS.find(function(o) { return o.id === id; });
+        var label = org ? org.name : id + ' (removed)';
+        var short = label.length > 25 ? label.substring(0, 22) + '...' : label;
+        return '<span class="pill pill-org" title="' + escapeHtml(label) + '">' + escapeHtml(short) + '</span>';
       }).join('') + '</div>';
     }
 
@@ -610,6 +838,20 @@
       });
       document.getElementById('modal-orgs').innerHTML = orgHtml;
 
+      // Management Overview organisations (separate list, separate field)
+      var currentMgmt = userManagementOrgs(data);
+      var mgmtHtml = '';
+      if (!MGMT_ORGS.length) {
+        mgmtHtml = '<div class="perm-check-desc" style="margin-left:0;">No organisations defined yet. Add one in the “Management Overview — Organizations” section.</div>';
+      } else {
+        MGMT_ORGS.forEach(function(org) {
+          var checked = currentMgmt.includes(org.id) ? ' checked' : '';
+          mgmtHtml += '<label class="perm-check"><input type="checkbox" data-mgmt-org="' + escapeHtml(org.id) + '"' + checked + '>' + escapeHtml(org.name) + '</label>';
+        });
+        mgmtHtml += '<div class="perm-check-desc" style="margin-left:0;margin-top:8px;">Only applies when Management Overview is enabled above.</div>';
+      }
+      document.getElementById('modal-mgmt-orgs').innerHTML = mgmtHtml;
+
       document.getElementById('modal-overlay').classList.add('active');
     }
 
@@ -637,10 +879,16 @@
         dashData[cb.getAttribute('data-dash')] = cb.checked;
       });
 
-      // Gather org selections
+      // Gather org selections (Payments / Service Bookings)
       var selectedOrgs = [];
       document.querySelectorAll('#modal-orgs input[data-org]').forEach(function(cb) {
         if (cb.checked) selectedOrgs.push(cb.getAttribute('data-org'));
+      });
+
+      // Gather Management Overview org selections
+      var selectedMgmtOrgs = [];
+      document.querySelectorAll('#modal-mgmt-orgs input[data-mgmt-org]').forEach(function(cb) {
+        if (cb.checked) selectedMgmtOrgs.push(cb.getAttribute('data-mgmt-org'));
       });
 
       try {
@@ -648,7 +896,8 @@
           payments: dashData.payments || false,
           serviceBookings: dashData.serviceBookings || false,
           managementDashboard: dashData.managementDashboard || false,
-          allowedOrgs: selectedOrgs
+          allowedOrgs: selectedOrgs,
+          managementOrgs: selectedMgmtOrgs
         });
         status.className = 'modal-status saved';
         status.textContent = 'Permissions saved successfully.';
@@ -692,7 +941,7 @@
         tbody.innerHTML = '';
 
         if (snapshot.empty) {
-          tbody.innerHTML = '<tr class="loading-row"><td colspan="9">No users yet</td></tr>';
+          tbody.innerHTML = '<tr class="loading-row"><td colspan="10">No users yet</td></tr>';
           return;
         }
 
@@ -731,6 +980,7 @@
             '<td>' + roleBadge + '</td>' +
             '<td>' + buildDashboardPills(data) + '</td>' +
             '<td>' + buildOrgPills(data) + '</td>' +
+            '<td>' + buildMgmtOrgPills(data) + '</td>' +
             '<td>' + regBadge + '</td>' +
             '<td style="color:#94a3b8;font-size:12px;">' + lastVisited + '</td>' +
             '<td><label class="toggle"><input type="checkbox"' +
@@ -763,7 +1013,7 @@
         });
       } catch (err) {
         console.error('Load users failed:', err);
-        tbody.innerHTML = '<tr class="loading-row"><td colspan="9">Failed to load users</td></tr>';
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="10">Failed to load users</td></tr>';
       }
     }
 
@@ -804,7 +1054,8 @@
           payments: true,
           serviceBookings: true,
           managementDashboard: false,
-          allowedOrgs: ALL_ORGS.slice()
+          allowedOrgs: ALL_ORGS.slice(),
+          managementOrgs: []
         });
 
         nameEl.value = '';
