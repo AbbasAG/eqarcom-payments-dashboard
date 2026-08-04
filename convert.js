@@ -76,6 +76,15 @@ function str(v) {
   return String(v).trim();
 }
 
+// Unit types arrive with inconsistent casing between exports ("Villa" in most
+// rows, "VILLA" in others). Left as-is they group as two separate unit types
+// on the Management Overview. Normalise to Title Case.
+function normalizeUnitType(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+  return s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+}
+
 function normalizeBedrooms(v) {
   if (v == null || v === '') return '';
   const s = String(v).trim();
@@ -231,7 +240,7 @@ async function buildOverviewPayload(unitsFile, leasesFile) {
   if (!leaseRows.length) throw new Error('Lease workbook appears empty.');
 
   const units = unitRows.map((r) => {
-    const unitType = str(pick(r, 'Unit Type'));
+    const unitType = normalizeUnitType(pick(r, 'Unit Type'));
     return {
       status:        str(pick(r, 'Unit Status', 'Status')),
       unit_type:     unitType,
@@ -263,7 +272,7 @@ async function buildOverviewPayload(unitsFile, leasesFile) {
       nationality:      str(pick(r, 'Nationality')),
       bedrooms:         u.bedrooms || normalizeBedrooms(pick(r, 'Bedrooms')),
       usage_type:       u.usage_type || usageTypeFor(pick(r, 'Unit Type')),
-      unit_type:        u.unit_type || str(pick(r, 'Unit Type')),
+      unit_type:        u.unit_type || normalizeUnitType(pick(r, 'Unit Type')),
       owner:            str(pick(r, 'Owner', 'Landlord', 'Owner Name')),
       ejari_no:         str(pick(r, 'Ejari No', 'Ejari Number', 'Ejari')),
       mobile:           num(pick(r, 'Mobile', 'Phone', 'Contact Number', 'Mobile Number')),

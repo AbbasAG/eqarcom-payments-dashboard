@@ -304,6 +304,16 @@ function occColor(p) {
   return '#f87171';
 }
 
+// Unit types can arrive with inconsistent casing between exports
+// ("Villa" vs "VILLA"), which would otherwise split one unit type across two
+// groups and drop rows out of the type-matched tables below. Normalise on read
+// so older uploads display correctly too.
+function normUnitType(t) {
+  const s = String(t == null ? '' : t).trim();
+  if (!s) return '';
+  return s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+}
+
 function normBedroom(b) {
   if (!b) return 'Unknown';
   const s = String(b).trim();
@@ -447,7 +457,7 @@ function render() {
   function subtypeGrid(arr, color, showArea) {
     const bedMap = {};
     arr.forEach(l => {
-      const b = color === '#60a5fa' ? normBedroom(l.bedrooms) : (l.bedrooms || l.unit_type || 'Other');
+      const b = color === '#60a5fa' ? normBedroom(l.bedrooms) : (l.bedrooms || normUnitType(l.unit_type) || 'Other');
       if (!bedMap[b]) bedMap[b] = { count:0, rent:0, area:0 };
       bedMap[b].count++;
       bedMap[b].rent += (l.annual_rent || 0);
@@ -467,7 +477,7 @@ function render() {
 
   const resLeased = activeLeases.filter(l => l.usage_type === 'Residential');
   const resUTG = {};
-  resLeased.forEach(l => { const ut = l.unit_type || 'Other'; if (!resUTG[ut]) resUTG[ut] = []; resUTG[ut].push(l); });
+  resLeased.forEach(l => { const ut = normUnitType(l.unit_type) || 'Other'; if (!resUTG[ut]) resUTG[ut] = []; resUTG[ut].push(l); });
   html += `<div class="charts-row">`;
   Object.entries(resUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
     html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#60a5fa;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#60a5fa', false)}</div></div>`;
@@ -476,7 +486,7 @@ function render() {
 
   const comLeased = activeLeases.filter(l => l.usage_type === 'Commercial');
   const comUTG = {};
-  comLeased.forEach(l => { const ut = l.unit_type || 'Other'; if (!comUTG[ut]) comUTG[ut] = []; comUTG[ut].push(l); });
+  comLeased.forEach(l => { const ut = normUnitType(l.unit_type) || 'Other'; if (!comUTG[ut]) comUTG[ut] = []; comUTG[ut].push(l); });
   html += `<div class="charts-row">`;
   Object.entries(comUTG).sort((a,b) => b[1].length - a[1].length).forEach(([ut, arr]) => {
     html += `<div class="chart-card"><div class="chart-title">${ut} Leased Units by Subtype <span style="color:#fbbf24;font-size:13px;margin-left:8px">(${arr.length} units)</span></div><div class="subtype-grid">${subtypeGrid(arr, '#fbbf24', true)}</div></div>`;
@@ -519,7 +529,7 @@ function render() {
     const badge = uType === 'Residential' ? 'badge-res' : 'badge-com';
     const sectionId = uType.toLowerCase();
     const targetTypes = uType === 'Residential' ? resUnitTypes : comUnitTypes;
-    const filtered = leases.filter(l => targetTypes.has(l.unit_type));
+    const filtered = leases.filter(l => targetTypes.has(normUnitType(l.unit_type)));
 
     const propLeases = {};
     filtered.forEach(l => { if (!propLeases[l.property]) propLeases[l.property] = []; propLeases[l.property].push(l); });
@@ -582,7 +592,7 @@ function render() {
 window.showDrill = function(type, property, bucket) {
   const { leases } = getFilteredData();
   const targetTypes = type === 'residential' ? resUnitTypes : comUnitTypes;
-  let filtered = leases.filter(l => targetTypes.has(l.unit_type));
+  let filtered = leases.filter(l => targetTypes.has(normUnitType(l.unit_type)));
   if (property !== 'ALL') filtered = filtered.filter(l => l.property === property);
 
   let bucketLabel = '';
@@ -601,7 +611,7 @@ window.showDrill = function(type, property, bucket) {
   filtered.sort((a,b) => new Date(a.end_date) - new Date(b.end_date)).forEach(l => {
     const dd = daysDiff(l.end_date);
     const ddColor = dd < 0 ? '#f87171' : dd <= 30 ? '#fbbf24' : dd <= 90 ? '#22d3ee' : '#e2e8f0';
-    h += `<tr><td>${l.unit_code || '-'}</td><td>${l.tenant || '-'}</td><td>${l.unit_type || '-'}</td><td>${l.bedrooms || '-'}</td><td class="num">${fmtCurrency(l.annual_rent)}</td><td>${l.start_date || '-'}</td><td>${l.end_date || '-'}</td><td class="num" style="color:${ddColor};font-weight:700">${dd}</td><td>${l.nationality || '-'}</td><td>${l.contract_type || '-'}</td><td style="font-size:11px">${l.ejari_no || '-'}</td></tr>`;
+    h += `<tr><td>${l.unit_code || '-'}</td><td>${l.tenant || '-'}</td><td>${normUnitType(l.unit_type) || '-'}</td><td>${l.bedrooms || '-'}</td><td class="num">${fmtCurrency(l.annual_rent)}</td><td>${l.start_date || '-'}</td><td>${l.end_date || '-'}</td><td class="num" style="color:${ddColor};font-weight:700">${dd}</td><td>${l.nationality || '-'}</td><td>${l.contract_type || '-'}</td><td style="font-size:11px">${l.ejari_no || '-'}</td></tr>`;
   });
   h += `</table></div>`;
   drillEl.innerHTML = h;
@@ -776,7 +786,7 @@ function generatePDF() {
   // Unit mix with avg rent
   const mixMap = {};
   active.forEach(l => {
-    const bt = l.usage_type === 'Residential' ? normBedroom(l.bedrooms) : (l.bedrooms || l.unit_type || 'Other');
+    const bt = l.usage_type === 'Residential' ? normBedroom(l.bedrooms) : (l.bedrooms || normUnitType(l.unit_type) || 'Other');
     if (!mixMap[bt]) mixMap[bt] = { count: 0, rent: 0 };
     mixMap[bt].count++;
     mixMap[bt].rent += (l.annual_rent || 0);
