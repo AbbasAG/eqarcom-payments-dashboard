@@ -281,15 +281,24 @@ const MS_DAY = 86400000;
 // older rules is classified correctly without needing a re-upload.
 const RESIDENTIAL_UNIT_TYPES = /apartment|villa|penthouse/;
 
-// A lease counts as "in place" — i.e. the unit is occupied and generating
-// rent — when its status is Active, and also when it is Expired. An expired
-// lease normally means the tenant is still in occupation while a renewal is
-// processed, so excluding it would understate occupied units, rent and area.
-// Statuses such as Terminated / Cancelled / Draft are NOT in place.
-const IN_PLACE_LEASE_STATUSES = new Set(['active', 'expired']);
+// A lease counts as "in place" — the unit is occupied and generating rent —
+// when it is Active, and also when it has Expired. An expired lease normally
+// means the tenant is still in occupation while a renewal is processed, so
+// excluding it understates occupied units, rent and area.
+//
+// Matched on patterns rather than exact strings, because source systems write
+// this column inconsistently ("Expired", "Lease Expired", "Expired - Renewal
+// Pending"). Exclusions are checked first so "Inactive" and "Terminated" can
+// never slip through. Anything unrecognised is excluded and reported on the
+// Total Units card rather than silently dropped.
+const IN_PLACE_STATUS     = /\bactive\b|expir|holdover|occupied|renew/i;
+const NOT_IN_PLACE_STATUS = /terminat|cancel|void|draft|inactive|vacat|reject|closed|pending\s*approval/i;
 
 function isInPlaceLease(l) {
-  return IN_PLACE_LEASE_STATUSES.has(String((l && l.status) || '').trim().toLowerCase());
+  const st = String((l && l.status) || '').trim();
+  if (!st) return false;
+  if (NOT_IN_PLACE_STATUS.test(st)) return false;
+  return IN_PLACE_STATUS.test(st);
 }
 
 function usageOf(x) {
@@ -458,6 +467,19 @@ function render() {
   const unitCodes         = new Set(units.map(u => u.unit_code).filter(Boolean));
   const unmatchedLeases   = inPlaceLeases.filter(l => !l.unit_code || !unitCodes.has(l.unit_code)).length;
 
+  // Any lease excluded by status is reported by name, so a status string this
+  // page doesn't recognise is visible rather than just a missing count.
+  const excludedByStatus = {};
+  leases.forEach(l => {
+    if (isInPlaceLease(l)) return;
+    const st = String((l && l.status) || '').trim() || '(blank)';
+    excludedByStatus[st] = (excludedByStatus[st] || 0) + 1;
+  });
+  const excludedEntries = Object.entries(excludedByStatus).sort((a, b) => b[1] - a[1]);
+  const excludedNote = excludedEntries
+    .map(([st, n]) => `${st} (${fmt(n)})`)
+    .join(', ');
+
   let leaseNote;
   if (totalUnits === 0) {
     leaseNote = `<span>${fmt(inPlaceLeaseCount)}</span> in-place leases`;
@@ -471,6 +493,9 @@ function render() {
     if (unmatchedLeases > 0) {
       leaseNote += ` &middot; <span>${fmt(unmatchedLeases)}</span> leases with no matching unit`;
     }
+  }
+  if (excludedEntries.length) {
+    leaseNote += `<br>Leases excluded by status: <span>${excludedNote}</span>`;
   }
   const comOccupied = comOcc.filter(u => u.status === 'Occupied').length;
 
